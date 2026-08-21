@@ -1,23 +1,108 @@
+/* Tokens de couleur : générés depuis src/design/palette.json, source unique. */
+@import "./design/palette.css";
+
 :root {
   color-scheme: dark;
+
+  /* Résolution interne du jeu, en pixels. Doit rester égale à PIXEL
+     (src/constants.ts) : c'est la même grille, vue depuis le CSS. */
+  --lem-largeur: 320;
+  --lem-hauteur: 180;
+
+  /* Taille d'un pixel de jeu, en pixels CSS. Réécrite par src/render/surface.ts
+     à chaque redimensionnement et à chaque changement de densité d'affichage.
+     Les trois couches en dépendent : une seule mesure, une seule boîte, un seul
+     facteur. La valeur de repli 1 sert avant le premier calcul et si le script
+     ne tourne pas.
+
+     Elle n'est PAS forcément entière : c'est le facteur en pixels d'écran qui
+     doit l'être, et il vaut cette valeur × devicePixelRatio. Sur un écran à
+     1,5 dppx, un pixel de jeu mesure 2,666… pixels CSS pour couvrir exactement
+     4 pixels d'écran. */
+  --lem-echelle: 1;
 }
 
 html,
 body {
   margin: 0;
   height: 100%;
-  background: #000;
+  background: var(--lem-espace);
 }
 
 body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Fenêtre plus petite que 320 × 180 : le facteur reste 1 et l'image déborde.
+     On la rogne plutôt que d'afficher des barres de défilement, qui rétréciraient
+     la fenêtre utile et relanceraient le calcul du facteur en boucle. */
+  overflow: hidden;
 }
 
+/* La boîte commune aux trois couches. C'est le seul endroit où l'agrandissement
+   se joue : la taille est posée en pixels CSS, éventuellement fractionnaires,
+   de sorte que chaque pixel du jeu couvre un carré ENTIER de pixels d'écran —
+   y compris quand devicePixelRatio ne l'est pas. */
+#scene {
+  position: relative;
+  width: calc(var(--lem-largeur) * var(--lem-echelle) * 1px);
+  height: calc(var(--lem-hauteur) * var(--lem-echelle) * 1px);
+}
+
+#scene > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#fond,
 #game {
   display: block;
-  background: #000;
   /* Agrandissement sans lissage : de vrais gros pixels. */
   image-rendering: pixelated;
+}
+
+#fond {
+  background: var(--lem-espace);
+}
+
+/* La couche de jeu se superpose au fond animé : elle ne porte pas de fond
+   propre, c'est son contenu qui décide de ce qui se voit. */
+#game {
+  background: transparent;
+}
+
+/* Les écrans en DOM. Typographie du design system : police système monospace,
+   graisse 700, interlettrage 1 px, tailles 8 / 16 / 24 / 32 px. */
+#ui {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, "Courier New", monospace;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--lem-blanc);
+}
+
+.bouchon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.bouchon-titre,
+.bouchon-invite {
+  margin: 0;
+}
+
+.bouchon-titre {
+  font-size: 32px;
+}
+
+.bouchon-invite {
+  font-size: 16px;
+  color: var(--lem-gris-pale);
 }
