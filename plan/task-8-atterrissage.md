@@ -1,7 +1,7 @@
 ---
 id: T8
 titre: Contact avec le sol, verdict posé ou crash
-fichiers: packages/game/src/landing.ts, packages/game/src/landing.test.ts, packages/game/src/events.ts, packages/game/src/rules.ts, packages/game/src/constants.ts, docs/cahier-des-charges.md
+fichiers: packages/game/src/landing.ts, packages/game/src/landing.test.ts, packages/game/src/events.ts, packages/game/src/types.ts, packages/game/src/constants.ts, docs/cahier-des-charges.md
 sensible: true
 ---
 
@@ -25,7 +25,9 @@ indépendamment du rendu.
 - `packages/game/src/entities/Lander.ts` fournit `Lander` avec `position`,
   `velocity`, `assiette` (T7).
 - `packages/game/src/types.ts` déclare `LemEvent`, réduit à `particle-died`.
-- Il n'y a **aucune** règle de tick dans le jeu : `rules.ts` n'existe pas encore.
+- Il n'y a **aucune** règle de tick dans le jeu : `rules.ts` n'existe pas encore,
+  et **T8 ne le crée pas** (voir le point 4). `Globals` vaut `{ nextId }` : ni
+  terrain, ni statut de manche.
 
 ## À faire
 
@@ -36,6 +38,14 @@ indépendamment du rendu.
    - `SEUIL_ASSIETTE = Math.PI / 18` (rad, soit 10°).
    `SEUIL_PLATITUDE` et la géométrie du LEM existent déjà (T6) : ne pas les
    redéfinir.
+   **Deux constantes de plus, ajoutées à l'implémentation** parce qu'écrites en
+   dur dans la règle elles seraient exactement les « nombres magiques
+   disséminés » que la centralisation interdit, et qu'aucune fiche ultérieure ne
+   les déclare ailleurs :
+   - `PLAFOND_Y = 0` (m, coordonnée `y` du haut du monde) — `horsLimites` y
+     compare `position.y` ;
+   - `COQUE_LARGEUR_EPAULES = 0.75` (fraction de la demi-largeur de train à
+     laquelle se trouvent les épaules) — c'est le `0,75` du point 2.
 2. Créer `packages/game/src/landing.ts` :
    - `piedsDuLem(lem): readonly [Vector2, Vector2]` — les deux pieds, à
      `±largeurTrain / 2` horizontalement et `hauteur / 2` sous le centre, **le
@@ -68,13 +78,47 @@ indépendamment du rendu.
        golf : on mesure l'écart au trou sur le terrain, pas l'altitude de la
        balle.
    - `horsLimites(lem): boolean` — vrai si le LEM sort latéralement du monde ou
-     passe au-dessus du plafond (`position.y < 0`).
+     passe au-dessus du plafond (`position.y < 0`). **Déclaré avant
+     `evalueContact`, parce que `evalueContact` l'appelle.**
+   - **Première condition de `evalueContact`, avant toutes les autres** : si
+     `horsLimites(lem)` est vrai, le verdict est
+     `{ pose: false, causes: ["hors-limites", …] }`, quelles que soient les
+     vitesses, l'assiette et la platitude. **Retenu à l'implémentation, à la
+     lecture du `…` de cette liste** : hors du monde, la cause `"hors-limites"`
+     est empilée puis **les trois critères de vol continuent d'être mesurés et
+     accumulés** (vy, vx, assiette sont mesurables partout, et l'accumulation est
+     le principe de la tâche), tandis que **les deux critères de sol ne le sont
+     pas** — platitude et coque interrogeraient le relief prolongé plat, c'est-à-
+     dire la fiction que cette garde existe justement pour ne pas créditer. Deux
+     tests couvrent les deux branches. C'est ce qui rend la cause
+     `"hors-limites"` du type `CauseCrash` réellement produite par une ligne de
+     code, au lieu de figurer dans l'union sans jamais sortir. Sans cette garde,
+     un LEM dérivant hors du monde à basse vitesse est déclaré **posé** sur un sol
+     qui n'existe pas : hors des bornes du champ, `surfaceEn` prolonge la valeur
+     du bord et `penteEn` rend 0, donc `denivele` vaut 0 et la platitude est
+     parfaite partout. Le score de golf se retrouverait crédité d'un écart mesuré
+     dans le vide.
 3. Créer `packages/game/src/events.ts` avec l'union des événements du jeu, dont
    `{ type: "contact"; verdict: Verdict }` et `{ type: "hors-limites" }`. Mettre
-   `types.ts` à jour.
-4. Créer `packages/game/src/rules.ts` avec `regleContact`, qui émet `contact` au
-   premier tick où `toucheLeSol` est vrai, et `hors-limites` quand `horsLimites`
-   l'est.
+   `types.ts` à jour : l'union `LemEvent` est **définie** dans `events.ts` et
+   `types.ts` la **ré-exporte** (`export type { LemEvent } from "./events.ts"`).
+   Le test existant `screens/manager.test.ts` importe `LemEvent` depuis
+   `../types.ts` ; la ré-export garde ce point d'entrée intact sans dupliquer
+   l'union. T9 fait pareil pour `Globals`.
+4. **Ne pas créer `rules.ts` ici.** `regleContact` a besoin de deux données que
+   T8 n'a pas le droit de fabriquer : le `terrain` de la manche et son `statut`,
+   qui n'entrent dans `Globals` qu'en T9. La règle, sa garde « une seule fois par
+   manche » et ses tests sont donc **entièrement en T9**, dont l'en-tête
+   `fichiers:` porte déjà `rules.ts`. T8 s'arrête à `landing.ts`, `events.ts` et
+   la mise à jour de `types.ts`. Tranché : la liste « fichiers attendus » du
+   prompt de lancement du run mentionnait `rules.ts` en T8 ; **ce sont les fiches
+   qui font foi**, et `rules.ts` a bien été créé en T9.
+   - **Interdit** : porter le drapeau « contact déjà émis » dans une variable de
+     module de `landing.ts` pour se passer des globals. La contrainte « aucun état
+     de simulation hors du `GameState` » l'exclut, et l'effet est durable : une
+     variable de module survit à la manche, donc après le premier contact de la
+     session plus aucune manche ne se termine — et le test des cinq ticks reste
+     vert malgré tout.
 5. Corriger le **§7 de `docs/cahier-des-charges.md`** : « distance du centre du
    LEM au moment du contact au pied du drapeau » devient « **écart horizontal**
    entre le centre du LEM au moment du contact et le mât du drapeau ». Le §5
@@ -84,10 +128,19 @@ indépendamment du rendu.
 
 ## Gardes et cas limites
 
-- **Un seul événement de contact par manche** : la règle ne doit pas émettre
-  `contact` à chaque tick pendant que le LEM est enfoncé dans le sol. La garde
-  porte sur le statut de la manche (T9), et un test l'éprouve sur plusieurs ticks
-  consécutifs.
+- **Un seul événement de fin de manche** — contact **comme** sortie du monde. Les
+  deux conditions restent vraies indéfiniment : le LEM enfoncé dans le sol y
+  reste, et le LEM sorti du monde continue de s'en éloigner. La garde vit en T9
+  (drapeau `contactEmisPourManche` dans les globals, plus la garde de statut des
+  reducers) et elle porte sur les **deux** branches avec les mêmes mots. `T8` ne
+  fournit ici que des prédicats sans mémoire : `toucheLeSol`, `horsLimites`,
+  `evalueContact` sont purs et se contentent de répondre sur l'état qu'on leur
+  donne.
+- **Sortie du monde et contact dans le même tick** : `evalueContact` tranche
+  seul, la sortie du monde primant (voir le point 2). Deux événements de fin de
+  manche appliqués sur le même état sortiraient un état incohérent —
+  `manchesReussies` +1 **et** `vies` −1 — puisque `Scene.tick` replie tous les
+  événements produits dans le tick.
 - **Contact par une épaule** (paroi de canyon, flanc de pic) : c'est
   automatiquement un crash, cause `coque-heurtee`, sans regarder les vitesses. On
   ne se pose pas sur le côté.
@@ -122,9 +175,15 @@ indépendamment du rendu.
 - Chaque cause isolément : `vy = 5` → `trop-vite-vertical` ; `vx = 3` →
   `trop-vite-lateral` ; assiette 30° → `trop-penche` ; contact sur un secteur
   accidenté → `sol-accidente`.
-- **Vol horizontal dans une paroi** : LEM à assiette 0, `vx = 20`, pieds
-  au-dessus du fond du canyon, épaule dans la paroi → crash `coque-heurtee`. Ce
-  test échoue si l'implémentation ne teste que les pieds.
+- **Vol horizontal dans une paroi** : LEM à assiette 0, `vx = 20`, pieds libres,
+  épaule dans la roche → crash `coque-heurtee`. Ce test échoue si
+  l'implémentation ne teste que les pieds, et il vérifie **explicitement** que les
+  deux pieds sont hors du sol. L'obstacle retenu n'est **pas** une paroi de canyon
+  au pas réel de 5 m mais un **éperon d'un seul échantillon sur un champ au pas de
+  1 m** : c'est géométriquement obligé, les pieds étant plus écartés (±4 m) et
+  plus bas que les épaules (±3 m), devant une paroi en marche d'escalier un pied
+  entre toujours dans la roche avant l'épaule. Seul un obstacle plus étroit que le
+  train isole le cas « épaule seule dans la roche ».
 - Causes cumulées : `vy = 5` et assiette 30° → **deux** causes.
 - Juste sous et juste au-dessus du seuil : `vy = 1.99` posé, `vy = 2.01` crashé
   (seuil inclusif, et c'est écrit).
@@ -136,20 +195,35 @@ indépendamment du rendu.
   euclidienne, puisque le centre du LEM est à 3,5 m au-dessus de la surface.
 - L'écart ne dépend **pas de l'altitude** : deux LEM de même abscisse et de `y`
   différents ont le même écart.
-- L'écart est mesuré depuis le **centre** : à assiette 20°, deux LEM dont les
-  centres sont au même endroit ont le même écart, quel que soit le pied qui
-  touche.
+- L'écart est mesuré depuis le **centre** : à assiette **±`SEUIL_ASSIETTE`
+  (10°)**, deux LEM dont les centres sont au même endroit ont le même écart, quel
+  que soit le pied qui touche. La valeur de 20° annoncée d'abord est inutilisable :
+  à 20° le verdict est un crash `trop-penche`, il n'y a plus aucun `ecart` à
+  comparer. À la tolérance maximale les deux LEM sont **posés**, un par chaque
+  pied, et l'égalité des écarts est vérifiable — l'intention tient, la valeur
+  change.
 - `horsLimites` : vrai à gauche, à droite, au-dessus du plafond ; faux au milieu.
-- La règle n'émet `contact` qu'une fois sur cinq ticks au sol.
+- **`evalueContact` d'un LEM hors du monde n'est jamais posé** : à `x = -50`,
+  `vy = 1`, `vx = 0`, assiette 0 — donc tous les critères de posé réunis sur le
+  bord prolongé plat — le verdict porte `pose: false` et la cause
+  `"hors-limites"`. Ce test échoue si la sortie du monde n'est pas la première
+  condition évaluée. Un **second** test tient l'autre moitié de la décision :
+  hors du monde avec `vy` et assiette hors seuils, les causes de vol dépassées
+  sont bien **accumulées** avec `"hors-limites"`, et ni `"sol-accidente"` ni
+  `"coque-heurtee"` n'apparaissent.
+- La règle de tick n'est **pas** testée ici : elle n'existe pas encore (T9).
 
 ## Fini quand
 
-- [ ] `evalueContact` rend un verdict complet, avec toutes les causes.
-- [ ] La coque entière collisionne, pas seulement les pieds.
-- [ ] L'écart est l'écart **horizontal** entre le centre du LEM et le drapeau, et
+- [x] `evalueContact` rend un verdict complet, avec toutes les causes.
+- [x] La coque entière collisionne, pas seulement les pieds.
+- [x] L'écart est l'écart **horizontal** entre le centre du LEM et le drapeau, et
       un posé pile sur la cible vaut bien 0 point.
-- [ ] Le §7 du cahier des charges dit « écart horizontal » et non « distance » ;
+- [x] Le §7 du cahier des charges dit « écart horizontal » et non « distance » ;
       T11 (distance à la cible du HUD) et T17 (report des valeurs finales)
       emploient la même définition.
-- [ ] Le contact n'est émis qu'une seule fois par manche.
-- [ ] La commande de vérification du README du plan passe au vert.
+- [x] Un LEM hors du monde n'est **jamais** déclaré posé, et `"hors-limites"` est
+      une cause réellement produite par `evalueContact`.
+- [x] `rules.ts` n'existe toujours pas : aucune règle de tick, aucun drapeau en
+      variable de module. La règle et son unicité par manche sont en T9.
+- [x] La commande de vérification du README du plan passe au vert.
