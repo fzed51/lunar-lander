@@ -1,0 +1,14 @@
+{
+  "name": "lem-monorepo",
+  "private": true,
+  "packageManager": "yarn@4.16.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "yarn workspace @lem/game dev",
+    "build": "yarn workspace @lem/game build",
+    "test": "yarn workspaces foreach -A run test",
+    "typecheck": "yarn workspaces foreach -A run typecheck"
+  }
+}

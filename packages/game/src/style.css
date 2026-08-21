@@ -1,0 +1,23 @@
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game {
+  display: block;
+  background: #000;
+  /* Agrandissement sans lissage : de vrais gros pixels. */
+  image-rendering: pixelated;
+}
