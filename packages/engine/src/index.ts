@@ -2,6 +2,7 @@
 
 export { Vector2 } from "./math/Vector2.ts";
 export { wrap, toroidalDelta } from "./math/wrap.ts";
+export { type Rng, createRng, melangeGraine } from "./math/Rng.ts";
 
 export type { EntityBase, Steppable } from "./core/Entity.ts";
 export {
@@ -36,7 +37,33 @@ export {
 } from "./physics/collision.ts";
 
 export {
+  type Heightfield,
+  largeur,
+  surfaceEn,
+  penteEn,
+  denivele,
+  souLeSol,
+  penetration,
+} from "./physics/heightfield.ts";
+
+export {
   Renderer,
   type StrokeFill,
   type TextOptions,
 } from "./render/Renderer.ts";
+
+export {
+  type Camera,
+  type TailleVue,
+  type Limites,
+  creeCamera,
+  versEcran,
+  versEcranPixel,
+  versMonde,
+  avecCentre,
+  avecZoom,
+  borne,
+  suit,
+  bornesVisibles,
+  estVisible,
+} from "./render/Camera.ts";
