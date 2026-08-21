@@ -1,0 +1,103 @@
+---
+id: T11
+titre: Tableau de bord chiffré avec seuils colorés
+fichiers: packages/game/src/render/hud.ts, packages/game/src/render/hud.test.ts, packages/game/src/screens/game.ts
+sensible: false
+---
+
+# T11 — HUD
+
+## Objectif
+
+Afficher, pendant le vol, toutes les valeurs qui permettent de décider — en
+mètres et mètres par seconde — et signaler par la couleur ce qui sort des seuils
+d'atterrissage.
+
+## Ce qui existe
+
+- `design/font.ts` : `dessineTexte` et `mesureTexte`, police 5 × 7 (T1).
+- `design/palette.ts` : 16 couleurs, dont `blanc`, `grisPale`, `accent`,
+  `alerte`, `flammeClaire`, `flammeChaude` (T1).
+- `Renderer` avec `fillRect`, `strokeRect`, `drawPixel` (T4).
+- `constants.ts` : `SEUIL_VY`, `SEUIL_VX`, `SEUIL_ASSIETTE`, `CRANS_MAX`,
+  `MONDE` (T6 à T9).
+- `state.ts` : `Globals` avec `vies`, `tempsDeVol`, `manchesReussies`, `ecarts`,
+  `terrain`, `statut` (T9).
+- L'écran de jeu de T10 appelle déjà le HUD en dernier dans `rend()`.
+
+## À faire
+
+1. Créer `packages/game/src/render/hud.ts`.
+2. Fonctions de **formatage pures**, testables sans canvas :
+   - `formateAltitude(m: number): string` — entier, suffixe ` M`, largeur fixe de
+     4 chiffres avec zéros de tête (`0042 M`), pour que le texte ne bouge pas ;
+   - `formateVitesse(v: number): string` — une décimale, signe explicite
+     (`+01.4`, `-02.0`) ;
+   - `formateTemps(s: number): string` — `M:SS` ;
+   - `formateCarburant(u: number, max: number): string` — pourcentage entier.
+3. `couleurSeuil(valeur, seuil): CouleurLem` — rend une **clé** de palette, que
+   l'appelant convertit en couleur par `PALETTE[cle]` avant de la passer au
+   `Renderer`. Aucune fonction de `hud.ts` ne manipule un code hexadécimal. — `accent` quand la valeur est dans
+   les clous, `flammeChaude` entre le seuil et 1,5 fois le seuil, `alerte`
+   au-delà. Trois paliers, pour que le joueur voie venir.
+4. `dessineHud(r, etat)` dispose, en 320 × 180 :
+   - **coin haut gauche** : altitude, vitesse verticale, vitesse horizontale,
+     chacune avec sa couleur de seuil. L'**altitude** est la hauteur au-dessus du
+     sol **sous le LEM** — `surfaceEn(hf, lem.position.x) - lem.position.y` — et
+     non une hauteur de monde : c'est cette valeur-là qui décide du contact ;
+   - **coin haut droit** : distance à la cible, temps de vol, numéro de manche,
+     difficulté à deux décimales ;
+   - **coin bas gauche** : jauge de carburant horizontale (cadre `grisPale`,
+     remplissage `flammeClaire`, `alerte` sous 20 %) plus le pourcentage ;
+   - **coin bas droit** : jauge de puissance à 5 barres verticales, barres
+     allumées en `flammeClaire`, éteintes en `reliefMoyen` ;
+   - **coin bas centre** : vies restantes, dessinées comme autant de petites
+     silhouettes de LEM.
+5. Ajouter un bandeau de message central, en `alerte`, quand le statut n'est pas
+   `"vol"` : `POSE — ECART nnn M` ou `CRASH` suivi des causes du verdict, en
+   clair (`TROP VITE`, `TROP PENCHE`, `SOL ACCIDENTE`, `HORS LIMITES`).
+
+## Gardes et cas limites
+
+- **Largeur fixe** : les nombres sont formatés à largeur constante ; un HUD dont
+  les colonnes sautent d'un pixel à chaque dizaine est illisible. Test dédié.
+- **Débordement de l'écran** : aucune ligne du HUD ne dépasse de 320 × 180, y
+  compris avec les valeurs extrêmes (altitude 4 chiffres, vitesse à deux
+  chiffres et une décimale, temps supérieur à 9 minutes, difficulté 4,00).
+- **Temps supérieur à 59:59** : reste lisible, ne tronque pas les minutes.
+- **Valeurs négatives** : altitude jamais négative (écrêtée à 0 pour
+  l'affichage) ; les vitesses gardent leur signe.
+- **Vitesse verticale montante** : n'est jamais colorée en `alerte`, cohérent
+  avec le verdict de T8 qui ne la sanctionne pas.
+- **Carburant à 0** : jauge vide, pourcentage `0 %`, pas de `-0 %` ni de barre
+  d'un pixel résiduelle.
+- **Plus de 5 vies** (impossible aujourd'hui, mais l'affichage ne doit pas
+  déborder) : au-delà, afficher `x N` plutôt que N silhouettes.
+- **Causes multiples** d'un crash : toutes affichées, séparées, tronquées
+  proprement si la largeur manque.
+- Aucune couleur littérale : tout passe par `PALETTE`.
+
+## Tests attendus
+
+- `formateAltitude(42)` vaut `0042 M` ; `formateAltitude(0)` vaut `0000 M` ;
+  `formateAltitude(-3)` vaut `0000 M`.
+- `formateVitesse(1.44)` vaut `+01.4` ; `formateVitesse(-2)` vaut `-02.0` ;
+  toutes les sorties ont la même longueur.
+- `formateTemps(0)` vaut `0:00` ; `formateTemps(65)` vaut `1:05` ;
+  `formateTemps(3599)` vaut `59:59`.
+- `formateCarburant(0, 140)` vaut `0 %` ; `formateCarburant(140, 140)` vaut
+  `100 %`.
+- `couleurSeuil` : `accent` sous le seuil, `flammeChaude` à 1,2 fois le seuil,
+  `alerte` à 2 fois, et `accent` pour une vitesse montante.
+- Largeur totale de chaque bloc de texte, calculée avec `mesureTexte`, tient dans
+  320 pixels pour les valeurs extrêmes listées ci-dessus.
+- Aucune couleur littérale dans `hud.ts`.
+
+## Fini quand
+
+- [ ] `yarn dev` affiche les neuf indicateurs, lisibles à 320 × 180.
+- [ ] Les vitesses changent de couleur avant de sortir des seuils, en trois
+      paliers.
+- [ ] Les colonnes ne bougent pas quand les valeurs changent d'ordre de
+      grandeur.
+- [ ] La commande de vérification du README du plan passe au vert.
