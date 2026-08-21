@@ -19,15 +19,16 @@ plausibles, pas démontrés** — c'est écrit tel quel dans les inconnues du RE
 plan :
 
 - `POUSSEE_MAX = 4` m/s², `CONSO_PAR_CRAN = 0.8` u/s/cran, `CRANS_MAX = 5` ;
-- `CARBURANT_BASE = 140`, `CARBURANT_PENTE = 25`, `CARBURANT_MIN = 60` ;
+- `CARBURANT_BASE = 140`, `CARBURANT_PENTE = 18`, `CARBURANT_MIN = 60` ;
 - `VH_BASE = 8`, `VH_PENTE = 6`, `VH_MAX = 32` m/s ;
 - `PALIER_DIFFICULTE = 0.08`, `DIFFICULTE_MAX = 2.4` ;
 - seuils `SEUIL_VY = 2`, `SEUIL_VX = 1`, `SEUIL_ASSIETTE = 10°`,
   `SEUIL_PLATITUDE = 1` m ;
 - `DEPART_Y = 120`, `DEPART_DISTANCE = 250–400` m,
-  `MONDE = { largeur: 1280, hauteur: 420 }` ;
-- `SEUILS_ZOOM = { vers2: 60, retour1: 80, vers4: 25, retour2: 35 }` ;
-- `PLATEFORME_LARGEUR_BASE = 24`, plancher 10 m ;
+  `MONDE = { largeur: 1280, hauteur: 420 }`, surface dans
+  `[TERRAIN_Y_MIN = 270, TERRAIN_Y_MAX = 400]` ;
+- `SEUILS_ZOOM = { vers2: 40, retour1: 60, vers4: 16, retour2: 24 }` ;
+- `PLATEFORME_ECHANTILLONS_BASE = 9` (40 m), plancher 5 échantillons (20 m) ;
 - terrain : `RUGOSITE_DOUCE = 0.15`, `RUGOSITE_ACCIDENTEE = 1.6`,
   `PENTE_MAX_DOUCE = 0.3`, pics et canyons.
 
@@ -44,16 +45,30 @@ plan :
      manche voulue ?
    - **annulation de la dérive** : tuer une dérive `v` au cran 5 sous une assiette
      `θ` coûte `v / sin θ` unités — soit ≈ 2,9 `v` à 20°, ≈ 1,4 `v` à 45°. À
-     difficulté 2,4 : dérive 22,4 m/s, réservoir 80 u, donc ≈ 32 u à 45°.
-   - **freinage vertical** depuis `DEPART_Y` : une chute libre de ~150 m atteint
-     ≈ 22 m/s, dont le freinage à 2,38 m/s² net coûte ≈ 9 s au cran 5, soit
-     ≈ 37 u. Le total (dérive + freinage) doit rester nettement sous le
-     réservoir, sinon la manche est perdue d'avance.
-3. **Vérifier que `DIFFICULTE_MAX = 2.4` est bien gagnable**, par ce calcul et par
-   le jeu. C'est l'arbitrage retenu : la rampe ne doit pas tuer, un joueur
-   excellent doit pouvoir enchaîner. Si 2,4 est déjà infranchissable, l'abaisser
-   et le dire. Depuis le niveau facile, atteindre le plafond demande
-   `2,4 / 0,08 = 30` manches réussies.
+     difficulté 2,4 : dérive 22,4 m/s, réservoir 96,8 u (pente 18), donc ≈ 32 u
+     à 45°.
+   - **freinage vertical au pire cas**, et non au meilleur : la hauteur de chute
+     va de `TERRAIN_Y_MIN - DEPART_Y = 150` m à
+     `TERRAIN_Y_MAX - DEPART_Y = 280` m selon l'altitude de la plateforme tirée.
+     C'est **280 m** qu'il faut prendre : 30,1 m/s à annuler à 2,38 m/s² net, soit
+     12,7 s au cran 5 et ≈ 51 u. Avec 150 m on n'obtient que ≈ 37 u, et on
+     certifie un plafond gagnable qui ne l'est que sur le terrain le plus
+     favorable. Le total (dérive + freinage) au pire cas, ≈ 83 u, doit rester
+     nettement sous le réservoir du plafond, sinon une manche sur une plateforme
+     basse est perdue d'avance.
+3. **Vérifier que `DIFFICULTE_MAX = 2.4` est bien gagnable au pire cas**, par ce
+   calcul et par le jeu. C'est l'arbitrage retenu : la rampe ne doit pas tuer, un
+   joueur excellent doit pouvoir enchaîner. Depuis le niveau facile, atteindre le
+   plafond demande `2,4 / 0,08 = 30` manches réussies.
+   L'arbitrage **déjà tranché** dans le plan : on garde 2,4 (valeur du cahier des
+   charges) et on remonte le réservoir du plafond en passant
+   `CARBURANT_PENTE` de 25 à **18** — 96,8 u contre ≈ 83 u de besoin au pire cas,
+   soit 17 % de marge. Les deux autres sorties possibles, écartées : abaisser
+   `DIFFICULTE_MAX` à 2,0 ne suffit même pas (90 u contre 78,9 u de besoin, soit
+   14 % de marge, sous le seuil exigé), et abaisser `DEPART_Y` réduit la chute
+   mais rapproche le LEM du sol au départ, ce qui change la nature de la manche.
+   Si le jeu contredit le calcul, corriger la valeur **et** le §8 du cahier des
+   charges, pas l'invariant.
 4. Ajuster les constantes. **Une seule** valeur à la fois, en notant l'effet
    observé — un changement groupé ne dit rien sur ce qui a agi.
 5. Confirmer ou corriger les inconnues chiffrées du README du plan : réglages de
@@ -62,9 +77,15 @@ plan :
 6. Créer `packages/game/src/reglages.test.ts` : les invariants de cohérence (voir
    « Tests attendus »).
 7. Reporter les **valeurs finales** dans `docs/cahier-des-charges.md` : les
-   sections §3 (pilotage), §4 (physique et seuils), §5 (terrain), §6 (caméra) et
-   §8 (difficulté) donnent aujourd'hui des ordres de grandeur ; elles doivent
-   donner les valeurs retenues.
+   sections §3 (pilotage), §4 (physique et seuils), §5 (terrain), §6 (caméra),
+   §7 (score) et §8 (difficulté) donnent aujourd'hui des ordres de grandeur ;
+   elles doivent donner les valeurs retenues. En particulier :
+   - §7 : l'écart d'une manche est l'écart **horizontal** au drapeau (déjà
+     corrigé en T8) — vérifier que la formulation n'est pas revenue à une
+     « distance » ;
+   - §8 : écrire que le plafond de 2,4 est démontré gagnable **au pire cas de
+     terrain** (chute de `TERRAIN_Y_MAX - DEPART_Y`), avec le réservoir retenu au
+     plafond.
 8. Mettre `README.md` à jour : retirer le bandeau « base saine, le jeu est un
    squelette », décrire le jeu tel qu'il est, les contrôles définitifs (dont
    Échap et la pause), la structure des paquets, et revoir la note sur `wrap` /
@@ -83,8 +104,10 @@ plan :
 - **Le niveau facile doit être gagnable** : au moins une manche réussie sur trois
   tentatives d'un joueur qui découvre le jeu. Sinon ce sont les réglages qui sont
   faux, pas le joueur.
-- **Le plafond doit rester franchissable** : c'est l'arbitrage retenu, il faut le
-  démontrer par le calcul du point 2, pas par l'intuition.
+- **Le plafond doit rester franchissable au pire cas**, pas au meilleur : c'est
+  l'arbitrage retenu, il faut le démontrer par le calcul du point 2 sur la
+  hauteur de chute maximale, pas par l'intuition ni sur la plateforme la plus
+  haute.
 - **Documentation et code d'accord** : une valeur du cahier des charges qui ne
   correspond plus à `constants.ts` est un mensonge qui survivra au chantier.
 - Ne **pas** ajouter de fonctionnalité sous couvert d'équilibrage : le hors
@@ -99,10 +122,21 @@ plan :
   - le vol stationnaire est possible : `POUSSEE_MAX > MOON_GRAVITY` ;
   - le carburant à `DIFFICULTE_MAX` est strictement positif ;
   - **le carburant à `DIFFICULTE_MAX` couvre le freinage vertical plus
-    l'annulation de la dérive à 45°**, avec une marge d'au moins 15 % ;
-  - la largeur de plateforme à `DIFFICULTE_MAX` reste supérieure à
-    `LEM.largeurTrain` ;
+    l'annulation de la dérive à 45°**, avec une marge d'au moins 15 %, le
+    freinage étant calculé sur la **hauteur de chute maximale**
+    (`TERRAIN_Y_MAX - DEPART_Y`) et non minimale. Écrire l'invariant avec
+    `TERRAIN_Y_MAX` dans la formule, pas un 150 en dur : c'est ce qui le rend
+    sensible à un futur déplacement du monde ;
+  - l'**étendue aplatie** de la plateforme à `DIFFICULTE_MAX` est au moins
+    `LEM.largeurTrain + 2 * TERRAIN_PAS`. Comparer à `LEM.largeurTrain` seul ne
+    couvre rien : `denivele` sur la largeur du train interpole vers les
+    échantillons voisins, il faut un pas entier de marge de chaque côté ;
   - les seuils de zoom sont bien ordonnés : `vers4 < retour2 < vers2 < retour1` ;
+  - **chaque seuil d'entrée tient dans la vue du zoom visé** :
+    `SEUILS_ZOOM.vers2 <= PIXEL.height / 4` et
+    `SEUILS_ZOOM.vers4 <= PIXEL.height / 8`. Sans cet invariant, le sol sort de
+    l'écran à l'instant du saut de zoom et l'hystérésis l'y maintient — l'ordre
+    des quatre seuils, lui, reste parfaitement vert ;
   - `RUGOSITE_ACCIDENTEE` vaut au moins cinq fois `RUGOSITE_DOUCE`.
 
 ## Fini quand
@@ -110,7 +144,7 @@ plan :
 - [ ] Les trois niveaux ont été joués et les réglages ajustés, une valeur à la
       fois.
 - [ ] Le niveau facile est gagnable, le plafond de difficulté est démontré
-      franchissable par le calcul.
+      franchissable par le calcul **sur la hauteur de chute maximale**.
 - [ ] `docs/cahier-des-charges.md` porte les valeurs finales, plus des ordres de
       grandeur.
 - [ ] `README.md` décrit le jeu fini, sans bandeau de chantier.

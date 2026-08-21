@@ -16,9 +16,14 @@ d'atterrissage.
 ## Ce qui existe
 
 - `design/font.ts` : `dessineTexte` et `mesureTexte`, police 5 × 7 (T1).
+  `dessineTexte` prend un `CibleDessin` (interface réduite à `fillRect`), que le
+  `Renderer` satisfait.
 - `design/palette.ts` : 16 couleurs, dont `blanc`, `grisPale`, `accent`,
   `alerte`, `flammeClaire`, `flammeChaude` (T1).
-- `Renderer` avec `fillRect`, `strokeRect`, `drawPixel` (T4).
+- `Renderer` avec `fillRect`, `strokeRect`, `drawPixel` (T4). `strokeRect` trace
+  son contour **à l'intérieur** de la zone donnée, en quatre `fillRect` et non en
+  `ctx.stroke()` : un cadre de jauge de `l × h` occupe donc exactement `l × h`
+  pixels, sans demi-pixel qui dépasse.
 - `constants.ts` : `SEUIL_VY`, `SEUIL_VX`, `SEUIL_ASSIETTE`, `CRANS_MAX`,
   `MONDE` (T6 à T9).
 - `state.ts` : `Globals` avec `vies`, `tempsDeVol`, `manchesReussies`, `ecarts`,
@@ -46,7 +51,11 @@ d'atterrissage.
      sol **sous le LEM** — `surfaceEn(hf, lem.position.x) - lem.position.y` — et
      non une hauteur de monde : c'est cette valeur-là qui décide du contact ;
    - **coin haut droit** : distance à la cible, temps de vol, numéro de manche,
-     difficulté à deux décimales ;
+     difficulté à deux décimales. La **distance à la cible** est le même écart
+     que celui qui fera le score : l'écart **horizontal**
+     `Math.abs(lem.position.x - terrain.cible.x)`, jamais une distance
+     euclidienne. Un HUD qui affiche 12 m et un verdict qui compte 13 points
+     ferait passer la règle du score pour un bug ;
    - **coin bas gauche** : jauge de carburant horizontale (cadre `grisPale`,
      remplissage `flammeClaire`, `alerte` sous 20 %) plus le pourcentage ;
    - **coin bas droit** : jauge de puissance à 5 barres verticales, barres
@@ -91,6 +100,8 @@ d'atterrissage.
   `alerte` à 2 fois, et `accent` pour une vitesse montante.
 - Largeur totale de chaque bloc de texte, calculée avec `mesureTexte`, tient dans
   320 pixels pour les valeurs extrêmes listées ci-dessus.
+- La distance affichée est **égale** à l'écart que rendrait `evalueContact` (T8)
+  pour la même position : un test compare les deux sur trois positions.
 - Aucune couleur littérale dans `hud.ts`.
 
 ## Fini quand

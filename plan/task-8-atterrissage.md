@@ -1,7 +1,7 @@
 ---
 id: T8
 titre: Contact avec le sol, verdict posé ou crash
-fichiers: packages/game/src/landing.ts, packages/game/src/landing.test.ts, packages/game/src/events.ts, packages/game/src/rules.ts, packages/game/src/constants.ts
+fichiers: packages/game/src/landing.ts, packages/game/src/landing.test.ts, packages/game/src/events.ts, packages/game/src/rules.ts, packages/game/src/constants.ts, docs/cahier-des-charges.md
 sensible: true
 ---
 
@@ -16,7 +16,9 @@ indépendamment du rendu.
 ## Ce qui existe
 
 - `@lem/engine` fournit `surfaceEn`, `penteEn`, `denivele`, `souLeSol`,
-  `penetration` (T3).
+  `penetration` (T3). Aux bornes du champ et au-delà, `penteEn` rend **0** (bord
+  plat) : une assiette jugée contre la pente locale à l'extrême bord du monde est
+  jugée contre l'horizontale.
 - `packages/game/src/terrain.ts` fournit `Terrain`, `estPosable`, et déjà dans
   `constants.ts` la géométrie `LEM = { largeurTrain: 8, hauteur: 7, rayon: 4 }`
   ainsi que `SEUIL_PLATITUDE = 1` (T6).
@@ -50,10 +52,21 @@ indépendamment du rendu.
    - `type Verdict = { pose: true; ecart: number } | { pose: false; causes: readonly CauseCrash[] }`
      avec `CauseCrash = "trop-vite-vertical" | "trop-vite-lateral" | "trop-penche" | "sol-accidente" | "coque-heurtee" | "hors-limites"`.
    - `evalueContact(terrain, lem): Verdict` — applique les conditions, **accumule
-     toutes** les causes d'échec, et pour un posé calcule `ecart` = distance
-     euclidienne entre le **centre du LEM au moment du contact** et le pied du
-     drapeau, arrondie au mètre. Le centre, et non le pied qui touche : sinon
-     l'assiette décalerait le score d'un demi-train.
+     toutes** les causes d'échec, et pour un posé calcule
+     `ecart = Math.round(Math.abs(lem.position.x - terrain.cible.x))` : l'écart
+     **horizontal** entre le centre du LEM au moment du contact et le mât du
+     drapeau, en mètres.
+     - Le **centre**, et non le pied qui touche : sinon l'assiette décalerait le
+       score d'un demi-train.
+     - **Horizontal seulement**, et non une distance euclidienne : au contact
+       sur du plat, le centre est à `LEM.hauteur / 2` = 3,5 m au-dessus de la
+       surface, alors que `cible.y` **est** la surface. Une distance euclidienne
+       vaudrait donc toujours au moins 3,5 m, `Math.round` en ferait 4, et le
+       « score parfait de 0 point » du cahier des charges (§5 et §7) serait
+       inatteignable : chaque manche réussie porterait un malus plancher de
+       4 points. C'est aussi le sens de « distance au drapeau » pour un score de
+       golf : on mesure l'écart au trou sur le terrain, pas l'altitude de la
+       balle.
    - `horsLimites(lem): boolean` — vrai si le LEM sort latéralement du monde ou
      passe au-dessus du plafond (`position.y < 0`).
 3. Créer `packages/game/src/events.ts` avec l'union des événements du jeu, dont
@@ -62,6 +75,12 @@ indépendamment du rendu.
 4. Créer `packages/game/src/rules.ts` avec `regleContact`, qui émet `contact` au
    premier tick où `toucheLeSol` est vrai, et `hors-limites` quand `horsLimites`
    l'est.
+5. Corriger le **§7 de `docs/cahier-des-charges.md`** : « distance du centre du
+   LEM au moment du contact au pied du drapeau » devient « **écart horizontal**
+   entre le centre du LEM au moment du contact et le mât du drapeau ». Le §5
+   promet un « score parfait de 0 point » : avec une distance euclidienne cette
+   promesse est fausse dès le premier posé. La documentation et le code doivent
+   dire la même règle, et c'est ici qu'on tranche.
 
 ## Gardes et cas limites
 
@@ -88,14 +107,18 @@ indépendamment du rendu.
   `surfaceEn` s'applique, et c'est écrit dans le code.
 - **Causes cumulées** : un LEM trop rapide *et* trop penché rend deux causes. Un
   verdict qui n'en rend qu'une masque de l'information au joueur.
-- `ecart` d'un posé pile sur la cible vaut **0**, jamais `-0` ni `0.0001`.
+- `ecart` d'un posé pile sur l'abscisse de la cible vaut **0**, jamais `-0` ni
+  `0.0001` : `Math.round(Math.abs(...))` s'en charge. C'est atteignable
+  puisqu'on ne mesure que l'axe horizontal.
+- `ecart` est un **entier positif ou nul**, jamais négatif : l'écart est une
+  valeur absolue, et le score de golf en est une somme.
 - Sortie par le haut : le LEM qui monte indéfiniment perd la manche, sinon la
   partie ne finit jamais.
 
 ## Tests attendus
 
 - Posé nominal : `vy = 1`, `vx = 0`, assiette 0, sur la plateforme → posé, écart
-  cohérent avec la distance au drapeau.
+  égal à l'écart horizontal au drapeau, arrondi.
 - Chaque cause isolément : `vy = 5` → `trop-vite-vertical` ; `vx = 3` →
   `trop-vite-lateral` ; assiette 30° → `trop-penche` ; contact sur un secteur
   accidenté → `sol-accidente`.
@@ -108,7 +131,11 @@ indépendamment du rendu.
 - Vitesse verticale **négative** (montante) élevée : pas de cause
   `trop-vite-vertical`.
 - Contact par un seul pied à assiette 45° : détecté plus tôt qu'à assiette 0.
-- Posé pile au centre de la plateforme : `ecart === 0`.
+- Posé pile au centre de la plateforme (`lem.position.x === terrain.cible.x`) :
+  `ecart === 0`. Ce test échoue si l'implémentation mesure une distance
+  euclidienne, puisque le centre du LEM est à 3,5 m au-dessus de la surface.
+- L'écart ne dépend **pas de l'altitude** : deux LEM de même abscisse et de `y`
+  différents ont le même écart.
 - L'écart est mesuré depuis le **centre** : à assiette 20°, deux LEM dont les
   centres sont au même endroit ont le même écart, quel que soit le pied qui
   touche.
@@ -119,6 +146,10 @@ indépendamment du rendu.
 
 - [ ] `evalueContact` rend un verdict complet, avec toutes les causes.
 - [ ] La coque entière collisionne, pas seulement les pieds.
-- [ ] L'écart est mesuré depuis le centre du LEM.
+- [ ] L'écart est l'écart **horizontal** entre le centre du LEM et le drapeau, et
+      un posé pile sur la cible vaut bien 0 point.
+- [ ] Le §7 du cahier des charges dit « écart horizontal » et non « distance » ;
+      T11 (distance à la cible du HUD) et T17 (report des valeurs finales)
+      emploient la même définition.
 - [ ] Le contact n'est émis qu'une seule fois par manche.
 - [ ] La commande de vérification du README du plan passe au vert.

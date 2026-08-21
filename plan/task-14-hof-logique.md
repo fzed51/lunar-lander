@@ -52,6 +52,12 @@ l'écran du hall of fame (T16) consommeront ces fonctions directement.
    - `ajouteAuHof(stockage, entree): readonly EntreeHof[]` — insère, trie,
      tronque à `TAILLE_HOF`, écrit, rend la liste ;
    - `videHof(stockage): void`.
+4. **Enrichir** la variante `{ nom: "hof" }` de `Transition` (T5) avec
+   `params?: { misEnAvant: EntreeHof }` : la variante existe déjà, on lui ajoute
+   sa charge utile maintenant que `EntreeHof` existe. Le champ est optionnel
+   parce qu'on ouvre aussi le hall of fame depuis l'accueil, sans entrée à
+   mettre en avant ; l'écran (T16) traite explicitement le cas absent, il ne le
+   force pas par un cast.
 
 ## Gardes et cas limites
 

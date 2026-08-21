@@ -1,0 +1,23 @@
+/* Fichier GÉNÉRÉ par packages/game/scripts/gen-palette-css.mjs.
+ * Ne pas éditer à la main : toute couleur se modifie dans
+ * packages/game/src/design/palette.json, puis `yarn gen:palette`.
+ */
+
+:root {
+  --lem-espace: #000000;
+  --lem-nuit: #0d0d1a;
+  --lem-ombre: #1b2032;
+  --lem-relief-sombre: #2e3448;
+  --lem-relief-moyen: #4a5068;
+  --lem-relief-clair: #6b7186;
+  --lem-gris-clair: #949aad;
+  --lem-gris-pale: #c3c8d6;
+  --lem-blanc: #ffffff;
+  --lem-flamme-claire: #ffd447;
+  --lem-flamme-chaude: #ff8c2b;
+  --lem-alerte: #e33d3d;
+  --lem-terre-ocean: #2f6fd0;
+  --lem-terre-ciel: #6fb7f2;
+  --lem-terre-sol: #3f9e5a;
+  --lem-accent: #57d6c0;
+}

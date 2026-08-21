@@ -1,0 +1,18 @@
+{
+  "espace": "#000000",
+  "nuit": "#0d0d1a",
+  "ombre": "#1b2032",
+  "reliefSombre": "#2e3448",
+  "reliefMoyen": "#4a5068",
+  "reliefClair": "#6b7186",
+  "grisClair": "#949aad",
+  "grisPale": "#c3c8d6",
+  "blanc": "#ffffff",
+  "flammeClaire": "#ffd447",
+  "flammeChaude": "#ff8c2b",
+  "alerte": "#e33d3d",
+  "terreOcean": "#2f6fd0",
+  "terreCiel": "#6fb7f2",
+  "terreSol": "#3f9e5a",
+  "accent": "#57d6c0"
+}

@@ -7,7 +7,20 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <canvas id="game"></canvas>
+    <!-- Trois couches superposées dans la même boîte, au même facteur
+         d'agrandissement (posé par src/render/surface.ts, entier en pixels
+         d'écran) :
+         - #fond : fond animé des écrans en DOM ;
+         - #game : l'écran de jeu ;
+         - #ui   : les écrans en DOM.
+         Les attributs width/height reprennent la résolution interne du jeu
+         (PIXEL, src/constants.ts) : un canvas sans dimensions déclarées vaudrait
+         300 × 150 et son contenu serait étiré hors grille. -->
+    <div id="scene">
+      <canvas id="fond" width="320" height="180"></canvas>
+      <canvas id="game" width="320" height="180"></canvas>
+      <div id="ui"></div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

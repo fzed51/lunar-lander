@@ -16,7 +16,15 @@ hall of fame.
 ## Ce qui existe
 
 - `packages/game/index.html` porte trois couches : `#fond`, `#game`, `#ui` (T5).
-- `GestionnaireEcrans` et l'interface `Ecran` (T5).
+  Les deux canvas déclarent `width="320" height="180"` ; `#fond` n'est encore
+  piloté par **aucun** code — c'est cette tâche qui lui donne un `Renderer`.
+- `packages/game/src/style.css` porte déjà la typographie DOM du design system
+  sur la règle `#ui` (`ui-monospace`, graisse 700, `letter-spacing: 1px`, tailles
+  multiples de 8 px), et le dimensionnement des trois couches par la variable
+  `--lem-echelle` que `creeSurface` écrit sur `<html>` (T5). Il n'y a **pas** de
+  variables CSS de typographie : les tailles se posent règle par règle.
+- `GestionnaireEcrans` et l'interface `Ecran` (T5). Le gestionnaire expose aussi
+  `nomCourant` et accepte une source de commandes injectable, réservée aux tests.
 - `design/palette.ts`, `design/palette.css`, `design/font.ts`,
   `docs/design-system.md` (T1).
 - `render/stars.ts` (champ d'étoiles) et `render/draw.ts` (drapeau qui ondule sur
@@ -54,7 +62,14 @@ hall of fame.
    - L'écran lit le **snapshot fourni par le gestionnaire** (T5), il n'appelle
      jamais `poll()` lui-même et ne pose pas ses propres écouteurs clavier.
    - Le niveau sélectionné est **retenu entre deux parties** (dernier choix
-     mémorisé en mémoire, pas en stockage).
+     mémorisé en mémoire, pas en stockage). En revanche la **demande de
+     transition ne survit pas** : elle est consommée par le gestionnaire
+     (`prendTransition`, T5) et `sort()` la remet à `null`. Sans ça, l'accueil
+     réactivé après une partie relancerait aussitôt une partie sans qu'on
+     appuie sur quoi que ce soit.
+   - Entrée note `{ nom: "jeu", params: { niveau, graine: Date.now() } }` : c'est
+     **ici, et nulle part ailleurs**, que l'unique graine extérieure d'une partie
+     est tirée (contrainte « aucun `Math.random` dans la logique de jeu »).
    - `tick(dt)` fait avancer le temps du fond ; `rend()` appelle `dessineFond`.
    - `sort()` vide `#ui` et retire tous les écouteurs.
 
@@ -80,7 +95,10 @@ hall of fame.
 ## Tests attendus
 
 - La sélection du niveau est bornée aux deux extrémités.
-- Le niveau choisi est celui passé à l'écran de jeu à la transition.
+- Le niveau choisi est celui passé à l'écran de jeu à la transition, et la
+  transition porte bien une `graine`.
+- Après consommation de la transition, réactiver l'accueil et ticker sans appui
+  ne relance **aucune** partie.
 - Après `sort()`, `#ui` est vide et un appui sur ← ne change plus rien.
 - Le drapeau rend l'image 0 à `t = 0`, l'image 1 à `t = 0.15`, et reboucle à
   `t = 0.6` (avec `DRAPEAU_PERIODE = 0.6`).

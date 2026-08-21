@@ -7,6 +7,10 @@
     "skipLibCheck": true,
 
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    // Le générateur de palette est un .mjs (Node le lance sans décapage de
+    // types) ; les tests en importent la fonction pure `rendCss`.
+    "allowJs": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",

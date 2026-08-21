@@ -42,15 +42,32 @@ segment, test de contact. La **génération** du relief n'est pas ici (T6).
    - `souLeSol(hf, point): boolean` — vrai si `point.y >= surfaceEn(hf, point.x)` ;
    - `penetration(hf, point): number` — profondeur d'enfoncement, `0` si le
      point est au-dessus de la surface.
+   Le nom `souLeSol` porte une faute d'orthographe (« sous le sol » donnerait
+   `sousLeSol`). Elle est **conservée volontairement** : le nom est écrit à
+   l'identique dans `task-6-terrain.md` et `task-8-atterrissage.md`, et le
+   corriger ici seul casserait le contrat que ces tâches attendent. À renommer en
+   une passe globale — plan et code ensemble — ou pas du tout.
+   Le paramètre `point` est typé par une forme structurale locale
+   `type Point = { readonly x: number; readonly y: number }`, **non exportée**, et
+   non par `Vector2` : elle accepte un `Vector2` du moteur comme un littéral,
+   sans ajouter au moteur un export public que personne n'a demandé.
 4. Ajouter les exports dans `packages/engine/src/index.ts`.
 
 ## Gardes et cas limites
 
-- `x` **hors des bornes** du champ : `surfaceEn` et `penteEn` renvoient la valeur
-  du bord le plus proche (comportement de bord plat, pas d'extrapolation
-  sauvage), et cette décision est commentée dans le code.
-- `pas <= 0` ou `surface.length < 2` : erreur explicite à l'appel, plutôt qu'un
-  `NaN` propagé jusqu'au rendu.
+- `x` **hors des bornes** du champ : le relief est prolongé **plat**, pas
+  extrapolé. `surfaceEn` rend donc la valeur du bord le plus proche, et
+  `penteEn` rend **`0`** — y compris **sur** les bornes elles-mêmes. La
+  formulation initiale (« `surfaceEn` et `penteEn` renvoient la valeur du bord »)
+  se contredisait : la pente doit rester la dérivée de `surfaceEn`, et une
+  surface constante hors bornes n'a pas d'autre pente cohérente que 0. Rendre la
+  pente du dernier segment ferait mentir la paire surface / pente. Décision
+  commentée dans le code et couverte par un test.
+- `pas <= 0`, `pas` **non fini**, ou `surface.length < 2` : erreur explicite à
+  l'appel, plutôt qu'un `NaN` propagé jusqu'au rendu. Le garde de finitude est
+  indispensable et non décoratif : `NaN <= 0` est **faux**, donc un `pas` à `NaN`
+  passait le seul contrôle `pas <= 0` et propageait des `NaN` jusqu'au rendu —
+  exactement ce que cette garde veut empêcher.
 - `denivele(hf, xa, xb)` avec `xa > xb` : bornes échangées.
 - `denivele` sur un intervalle plus étroit que `pas` : calcul sur les deux bornes
   interpolées uniquement, sans oublier qu'il n'y a pas d'échantillon dedans.
@@ -67,19 +84,21 @@ segment, test de contact. La **génération** du relief n'est pas ici (T6).
 - Sur un champ plat, `surfaceEn` rend la même valeur partout et `penteEn` vaut 0.
 - Sur une pente régulière, `surfaceEn` interpole correctement au milieu d'un pas
   et `penteEn` rend la pente exacte.
-- Hors bornes à gauche et à droite : valeur du bord, pas d'extrapolation.
+- Hors bornes à gauche et à droite : `surfaceEn` rend la valeur du bord,
+  `penteEn` rend 0. Pas d'extrapolation.
 - `denivele` : nul sur du plat ; égal à la hauteur du pic quand l'intervalle
   contient un pic isolé ; correct quand l'intervalle est plus étroit qu'un pas.
 - `denivele(hf, b, a) === denivele(hf, a, b)`.
 - `souLeSol` : faux au-dessus, vrai en dessous, **vrai** exactement sur la
   surface.
 - `penetration` vaut 0 au-dessus, la profondeur exacte en dessous.
-- `pas` nul, négatif, ou `surface` d'une seule entrée : erreur explicite.
+- `pas` nul, négatif, **non fini**, ou `surface` d'une seule entrée : erreur
+  explicite.
 
 ## Fini quand
 
-- [ ] Les six fonctions sont exportées par `@lem/engine`, pures, sans état.
-- [ ] La convention « `y` croît vers le bas » est écrite en tête de fichier.
-- [ ] Les cas de bord (hors bornes, pic isolé, contact exact) sont couverts par
-      des tests.
-- [ ] La commande de vérification du README du plan passe au vert.
+- [x] Les six fonctions sont exportées par `@lem/engine`, pures, sans état.
+- [x] La convention « `y` croît vers le bas » est écrite en tête de fichier.
+- [x] Les cas de bord (hors bornes, pic isolé, contact exact) sont couverts par
+      des tests (`heightfield.test.ts` : 24 tests).
+- [x] La commande de vérification du README du plan passe au vert.
