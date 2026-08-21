@@ -37,9 +37,10 @@ au hall of fame, faire saisir un trigramme à la manière d'une borne d'arcade.
    - `gauche(t)` / `droite(t)` — changent de position, **bornées** ;
    - `texte(t): string` — les trois lettres.
 2. Créer `packages/game/src/screens/gameover.ts`.
-   - `entre(params)` reçoit le résultat de la partie : manches réussies, total de
-     points, temps de vol, niveau de départ, et si la partie s'est terminée par
-     un abandon (Échap) ou par épuisement des vies.
+   - `entre(t)` reçoit la variante `{ nom: "fin"; params: ResultatPartie }` de
+     `Transition`, enrichie par T9 : manches réussies, total de points, temps de
+     vol, niveau de départ, et si la partie s'est terminée par un abandon
+     (Échap) ou par épuisement des vies.
    - **Récapitulatif** toujours affiché : `MANCHES REUSSIES n`,
      `TOTAL nnn POINTS`, `TEMPS DE VOL m:ss`, `NIVEAU x`, et le rappel
      `MOINS DE POINTS = MIEUX`.
@@ -47,10 +48,13 @@ au hall of fame, faire saisir un trigramme à la manière d'une borne d'arcade.
    - Si qualifié : bloc de saisie du trigramme, trois lettres, curseur sous la
      position courante, invite
      `HAUT BAS LETTRE — GAUCHE DROITE POSITION — ENTREE VALIDER`. `Entrée` appelle
-     `ajouteAuHof`, puis demande la transition vers `"hof"` en passant l'entrée
-     enregistrée pour qu'elle y soit mise en évidence.
+     `ajouteAuHof`, puis note la transition `{ nom: "hof", params: … }` en
+     passant l'entrée enregistrée (variante enrichie par T14) pour qu'elle y soit
+     mise en évidence.
    - Si non qualifié : invite `ENTREE — RETOUR ACCUEIL`, aucune saisie.
-   - `sort()` vide `#ui` et ne laisse aucun état de saisie.
+   - `sort()` vide `#ui`, ne laisse aucun état de saisie, et **remet la demande
+     de transition à `null`** : sinon un retour ultérieur sur cet écran
+     renverrait au hall of fame tout seul.
 3. Ajouter au style `ui.css` le bloc de saisie : lettres en 32 px, curseur en
    `accent`, reste en `blanc` et `grisPale`.
 

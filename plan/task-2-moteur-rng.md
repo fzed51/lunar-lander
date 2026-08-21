@@ -47,7 +47,12 @@ soient identiques à graine identique — et donc testables.
 - Deux générateurs créés avec la même graine rendent **exactement** la même
   suite ; deux graines différentes divergent.
 - `graine` non entière ou négative : ramenée à un entier 32 bits non signé
-  (`Math.floor` puis `>>> 0`), jamais d'exception.
+  (`Math.floor` puis `>>> 0`), jamais d'exception. Le code ajoute un garde
+  `Number.isFinite` devant : `NaN` et `Infinity` retombaient déjà à 0 par le
+  `>>> 0`, le garde ne change donc rien au contrat, il rend l'intention lisible.
+- **`next` est détachable** : `createRng` rend des fonctions fléchées liées à la
+  closure, pas des méthodes qui dépendraient de `this`. C'est ce qui permet de
+  passer `rng.next` tel quel là où un `() => number` est attendu (`spawnDebris`).
 - `int(3, 3)` rend toujours `3` ; `int` avec `min > max` échange les bornes
   plutôt que de boucler ou de rendre `NaN`.
 - `range(min, max)` avec `min === max` rend `min`.
@@ -74,8 +79,13 @@ soient identiques à graine identique — et donc testables.
 
 ## Fini quand
 
-- [ ] `createRng` est exporté par `@lem/engine` et documenté en français.
-- [ ] Les tests de déterminisme et de bornes passent.
-- [ ] `spawnDebris` de `packages/game/src/entities/Particle.ts` est appelable
-      avec `rng.next` sans modification de sa signature.
-- [ ] La commande de vérification du README du plan passe au vert.
+- [x] `createRng` est exporté par `@lem/engine` et documenté en français.
+- [x] Les tests de déterminisme et de bornes passent (`Rng.test.ts` : 20 tests).
+- [x] `spawnDebris` de `packages/game/src/entities/Particle.ts` est appelable
+      avec `rng.next` sans modification de sa signature. **Prouvé côté moteur et
+      non côté jeu** : le moteur ne peut pas importer `@lem/game` (contrainte du
+      chantier) et cette fiche ne liste aucun fichier du jeu, donc aucune ligne
+      de `packages/game` n'a été touchée. La propriété réellement en jeu est que
+      `rng.next` soit détachable, et c'est le test « expose un `next`
+      détachable » de `Rng.test.ts` qui la verrouille.
+- [x] La commande de vérification du README du plan passe au vert.

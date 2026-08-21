@@ -34,11 +34,18 @@ encore gagnable, et un score de type golf.
    - `VIES_INITIALES = 3` ;
    - `NIVEAUX = { facile: 0, moyen: 1, difficile: 2 }` ;
    - `PALIER_DIFFICULTE = 0.08` (par manche réussie) ;
-   - `DIFFICULTE_MAX = 2.4` — **plafond volontairement gagnable**, mesuré en T17.
-     Au-delà d'environ 2,5, le carburant ne suffit plus à la fois à annuler la
-     dérive initiale et à freiner la chute : la manche serait perdue d'avance ;
+   - `DIFFICULTE_MAX = 2.4` — **plafond volontairement gagnable**, vérifié en
+     T17 sur le **pire cas** de terrain (plateforme à `TERRAIN_Y_MAX`, donc une
+     chute de `TERRAIN_Y_MAX - DEPART_Y = 280` m) et non sur le meilleur ;
    - `VH_BASE = 8`, `VH_PENTE = 6`, `VH_MAX = 32` (m/s) ;
-   - `CARBURANT_BASE = 140`, `CARBURANT_PENTE = 25`, `CARBURANT_MIN = 60` ;
+   - `CARBURANT_BASE = 140`, `CARBURANT_PENTE = 18`, `CARBURANT_MIN = 60`. La
+     pente est à **18** et non 25 : c'est l'arbitrage retenu pour tenir le
+     plafond de 2,4 du cahier des charges. Au pire cas, freiner 280 m de chute
+     libre coûte ≈ 51 u (30,1 m/s à annuler à 2,38 m/s² net, à 4 u/s) et annuler
+     la dérive de 22,4 m/s à 45° coûte ≈ 32 u, soit ≈ 83 u. Avec une pente de 25
+     le réservoir au plafond ne valait que 80 u : la manche était **perdue
+     d'avance** sur une plateforme basse. Avec 18, il vaut 96,8 u, soit 17 % de
+     marge ;
    - `DEPART_Y = 120` (coordonnée `y` de départ du LEM ; c'est un `y`, pas une
      altitude — l'altitude au-dessus du sol s'en déduit) ;
    - `DELAI_ENCHAINEMENT = 2` (s passées sur l'écran de posé ou de crash).
@@ -61,7 +68,16 @@ encore gagnable, et un score de type golf.
    - `Globals` enrichi : `nextId`, `statut: "vol" | "pause" | "pose" | "crash" | "fini"`,
      `vies`, `niveauDepart`, `manchesReussies`, `numeroManche`,
      `ecarts: readonly number[]`, `tempsDeVol`, `tempsManche`, `terrain`,
-     `graine`, `dernierVerdict`, `abandonnee: boolean`, `gazAccu: number`.
+     `graine`, `dernierVerdict`, `abandonnee: boolean`, `gazAccu: number`,
+     `instantStatut: number`.
+     - `instantStatut` est la valeur de `state.time` au moment du **dernier
+       changement de statut**. C'est le seul horodatage qui permette de mesurer
+       le délai d'enchaînement : `tempsDeVol` et `tempsManche` sont gelés dès
+       qu'on quitte `"vol"` (voir les gardes), donc aucun d'eux n'avance pendant
+       `pose` ou `crash`. `state.time`, lui, continue d'avancer parce que
+       `Scene.tick` l'incrémente à chaque tick et que l'écran de jeu ne suspend
+       la scène qu'en `pause` (T10). Mettre ce compteur dans une variable de
+       module au lieu du `GameState` casserait la pureté et la reproductibilité.
      - `numeroManche` compte **toutes** les manches jouées, réussies ou non. Il
        est distinct de `manchesReussies` : c'est lui qui dérive la graine du
        terrain. Dériver depuis `manchesReussies`, qui ne bouge pas sur un crash,
@@ -73,7 +89,13 @@ encore gagnable, et un score de type golf.
    - `nouvelleManche(etat)` — incrémente `numeroManche`, calcule la difficulté,
      génère le terrain avec `melangeGraine(graine, numeroManche)`, place le LEM en
      `(terrain.depart.x, DEPART_Y)` avec la vitesse horizontale initiale du
-     `sens` du terrain, remet le plein de carburant et remet `tempsManche` à 0.
+     `sens` du terrain, remet le plein de carburant, remet `tempsManche` à 0,
+     repasse `statut` à `"vol"` et `instantStatut` à `state.time` ;
+   - `type ResultatPartie = { manchesReussies, points, tempsDeVol, niveauDepart, abandonnee }`
+     et la fonction qui l'extrait d'un `GameState` fini. C'est cette tâche qui
+     **enrichit** la variante `{ nom: "fin" }` de `Transition` (T5) avec
+     `params: ResultatPartie` — la variante existe déjà, on lui ajoute sa charge
+     utile, on ne la crée pas.
 5. Créer `packages/game/src/reducers.ts` :
    - `surContact` : posé → `statut = "pose"`, écart ajouté, `manchesReussies + 1` ;
      sinon → `statut = "crash"`, `vies - 1`, et `statut = "fini"` à 0 vie ;
@@ -81,15 +103,24 @@ encore gagnable, et un score de type golf.
    - `surPause` / `surReprise` : bascule `"vol"` ↔ `"pause"` ;
    - `surAbandon` : `statut = "fini"`, `abandonnee = true` ;
    - `surParticuleMorte` : retrait de la particule.
+   **Tout reducer qui change `statut` écrit `instantStatut = state.time`** —
+   `surContact`, `surHorsLimites`, `surPause`, `surReprise`, `surAbandon`. Sans
+   cette écriture, `regleEnchainement` n'a aucun instant de référence et le jeu
+   reste bloqué sur le bandeau de fin de manche.
    Tous **idempotents** : rejouer le même événement dans le tick ne change rien
-   de plus.
+   de plus — y compris `instantStatut`, qui ne bouge pas quand le statut est
+   déjà celui visé.
 6. Ajouter dans `rules.ts` :
    - `reglePause` : `back` (Échap) sur front montant bascule en `"pause"` ; en
      pause, `confirm` reprend et une seconde pression sur `back` abandonne ;
    - `regleTempsDeVol` : incrémente `tempsDeVol` et `tempsManche` **seulement**
      si `statut === "vol"` ;
-   - `regleEnchainement` : après `DELAI_ENCHAINEMENT` passé en `"pose"` ou
-     `"crash"`, enchaîne la manche suivante s'il reste des vies, sinon `"fini"`.
+   - `regleEnchainement` : quand `statut` vaut `"pose"` ou `"crash"` et que
+     `state.time - globals.instantStatut >= DELAI_ENCHAINEMENT`, enchaîne la
+     manche suivante s'il reste des vies, sinon `"fini"`. Le délai se mesure sur
+     `state.time`, **pas** sur `tempsDeVol` ni `tempsManche` : ces deux-là sont
+     gelés hors du vol, le seuil ne serait jamais franchi et la partie
+     resterait coincée sur le bandeau de fin de manche.
 
 ## Gardes et cas limites
 
@@ -104,6 +135,12 @@ encore gagnable, et un score de type golf.
   abri gratuit — et le temps de vol, clé de tri principale du hall of fame, se
   gonflerait à l'arrêt.
 - **`tempsDeVol` ne tourne pas** non plus pendant `pose`, `crash` ou `fini`.
+  C'est précisément pour ça que l'enchaînement se mesure sur `state.time` et
+  `instantStatut`, et pas sur un compteur de manche.
+- **`state.time` avance en `pose` et en `crash`** : la scène continue de ticker,
+  seule la `pause` la suspend (T10). Si un jour la scène était suspendue aussi
+  en `pose` / `crash`, l'enchaînement s'arrêterait avec elle — à écrire en
+  commentaire à côté de `regleEnchainement`.
 - **Graine dérivée de `numeroManche`** : deux manches d'une même partie n'ont pas
   le même terrain, y compris après un crash ; deux parties de même graine ont
   exactement la même suite de terrains. Test dédié sur un crash suivi d'une
@@ -126,8 +163,8 @@ encore gagnable, et un score de type golf.
   faut treize manches réussies pour franchir un cran — la démonstration chiffrée
   du « palier doux ».
 - `difficulteDe(2, 100)` est plafonné à `2.4`.
-- `carburantInitial` : 140 à difficulté 0, 80 à difficulté 2,4, plancher 60
-  respecté.
+- `carburantInitial` : 140 à difficulté 0, **96,8** à difficulté 2,4 (pente 18),
+  plancher 60 respecté à difficulté 5.
 - `vitesseHorizontaleInitiale` : norme conforme, plafond 32, signe **égal** à
   celui passé.
 - `totalPoints([12, 0, 45])` vaut 57 ; `totalPoints([])` vaut 0.
@@ -139,6 +176,11 @@ encore gagnable, et un score de type golf.
 - Crash à la dernière vie : `statut === "fini"`.
 - Cinq ticks au sol : un seul décompte.
 - `tempsDeVol` gelé en `pause`, `pose`, `crash` et `fini`.
+- **Enchaînement** : depuis un `crash` avec des vies restantes, 2 s de ticks
+  déclenchent la manche suivante ; 1,9 s de ticks ne la déclenchent pas. Même
+  test depuis un `pose`. C'est le test qui prouve que le délai est mesurable.
+- `instantStatut` : écrit à `state.time` au passage en `pose` / `crash` /
+  `pause` / `fini`, et remis par `nouvelleManche`.
 - **Après un crash**, la manche suivante a un terrain différent (graine dérivée
   de `numeroManche`, pas de `manchesReussies`).
 - Deux parties de même graine : suite de terrains identique, crash inclus.
@@ -153,6 +195,8 @@ encore gagnable, et un score de type golf.
 - [ ] Les trois niveaux, la montée de 0,08 et le plafond gagnable sont
       implémentés et chiffrés dans les tests.
 - [ ] La pause gèle tout, y compris le chrono.
+- [ ] Après un posé ou un crash, la manche suivante démarre bien au bout de
+      `DELAI_ENCHAINEMENT`, mesuré sur `state.time` et `instantStatut`.
 - [ ] Le terrain change après un crash.
 - [ ] Le score est la somme des écarts des manches réussies, le plus petit étant
       le meilleur.

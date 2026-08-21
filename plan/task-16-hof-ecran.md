@@ -30,16 +30,22 @@ défilement au clavier et remise à zéro confirmée.
      Colonnes à largeur fixe, alignées.
    - Défilement au clavier : ↑ / ↓ ligne à ligne, ← / → page par page. Une
      fenêtre de lignes visibles, pas 100 lignes empilées hors écran.
-   - Mise en évidence en `accent` de l'entrée passée en paramètre, quand on
-     arrive depuis l'écran de fin ; défilement automatique jusqu'à elle.
+   - Mise en évidence en `accent` de l'entrée portée par la variante
+     `{ nom: "hof"; params: … }` de `Transition` (T5, enrichie par T14), quand on
+     arrive depuis l'écran de fin ; défilement automatique jusqu'à elle. Arrivée
+     depuis l'accueil : pas de params, aucune ligne mise en avant.
    - `R` demande la remise à zéro, avec confirmation explicite
      (`R A NOUVEAU POUR CONFIRMER — ECHAP POUR ANNULER`), puis `videHof`.
    - `Échap` ou `Entrée` revient à l'accueil.
    - Liste vide : `AUCUNE PARTIE ENREGISTREE`.
-   - `sort()` vide `#ui` et ne laisse aucun état de confirmation en attente.
+   - `sort()` vide `#ui`, ne laisse aucun état de confirmation en attente, et
+     remet la demande de transition à `null` (T5).
 2. Ajouter les styles de tableau dans `ui.css`, tokens de T1 uniquement.
 3. Ajouter les touches `R` (commande `raz`) et le défilement à
-   `input/mapping.ts` si elles n'y sont pas encore.
+   `input/mapping.ts` si elles n'y sont pas encore. `KeyR` **ne doit pas**
+   déclencher `raz` quand `Ctrl`, `Cmd` ou `Alt` est enfoncé : le filtre est
+   posé une fois pour toutes dans `KeyboardInput` par T4. Ne pas le refaire ici,
+   et ne pas mapper `R` sur autre chose pour contourner le problème.
 
 ## Gardes et cas limites
 
@@ -50,6 +56,10 @@ défilement au clavier et remise à zéro confirmée.
   effacer 100 entrées. La confirmation en attente **expire** au changement
   d'écran — sinon un `R` laissé pendant depuis la visite précédente effacerait la
   liste au retour.
+- **`Cmd+R` / `Ctrl+R` rechargent la page** et ne comptent pas comme un appui sur
+  `raz`. Sans le filtre de modificateurs de T4, l'utilisateur qui veut recharger
+  voit `R A NOUVEAU POUR CONFIRMER`, refait `Cmd+R` en croyant que rien n'a pris,
+  et perd ses 100 entrées.
 - **Défilement borné** : ↑ sur la première ligne et ↓ sur la dernière ne sortent
   pas de la liste. Liste vide : le défilement ne lève pas.
 - **Date affichée** : formatée pour être lisible, mais une date invalide en
@@ -63,6 +73,8 @@ défilement au clavier et remise à zéro confirmée.
 - Défilement borné en haut et en bas ; aucun jet sur une liste vide.
 - Première pression sur `R` : rien d'effacé, message de confirmation présent.
 - Deuxième pression : liste vidée.
+- **`Ctrl+R` puis `Ctrl+R`** : aucune confirmation demandée, liste intacte
+  (garanti par le filtre de T4, éprouvé ici sur l'écran réel).
 - `Échap` après une première pression sur `R` : confirmation annulée, liste
   intacte.
 - Après `sort()` puis re-`entre()`, aucune confirmation n'est en attente.
