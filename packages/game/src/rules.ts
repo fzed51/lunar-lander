@@ -2,7 +2,7 @@
  * Règles de tick de la manche : elles **émettent** des événements et n'écrivent
  * jamais l'état, ce sont les reducers qui l'écrivent.
  *
- * Il y en a **trois**, et il n'y a **aucune règle de pause**. Une `TickRule` est
+ * Il y en a **cinq**, et il n'y a **aucune règle de pause**. Une `TickRule` est
  * évaluée à l'intérieur de `Scene.tick`, et l'écran de jeu ne ticke plus la scène
  * dès que le statut vaut `"pause"` (T10) : l'entrée de pause et sa sortie se
  * retrouveraient de part et d'autre de la frontière, la seule fonction capable de
@@ -17,11 +17,12 @@
 
 import { byKind, type TickRule } from "@lem/engine";
 import { DELAI_ENCHAINEMENT } from "./constants.ts";
+import { sansCarburant } from "./entities/Lander.ts";
 import { evalueContact, horsLimites, toucheLeSol } from "./landing.ts";
 import type { EtatPartie } from "./state.ts";
 import type { Command, LemEvent } from "./types.ts";
 
-/** Règle de tick de la manche. Alias : la signature revient trois fois. */
+/** Règle de tick de la manche. Alias : la signature revient cinq fois. */
 export type RegleManche = TickRule<EtatPartie, LemEvent, Command>;
 
 /**
@@ -79,4 +80,49 @@ export const regleEnchainement: RegleManche = (etat) => {
   if (g.statut !== "pose" && g.statut !== "crash") return [];
   if (etat.time - g.instantStatut < DELAI_ENCHAINEMENT) return [];
   return [{ type: "manche-suivante" }];
+};
+
+/**
+ * Gaz du moteur : une bouffée par image, **en vol seulement**, moteur allumé et
+ * réservoir non vide.
+ *
+ * La règle n'émet que l'événement et son `dt` : c'est `surGaz` qui fabrique la
+ * gerbe, parce qu'elle a besoin d'écrire trois globals — le prochain id, le reste
+ * fractionnaire du débit et le compteur de tirages — et qu'une règle de tick
+ * n'écrit jamais l'état.
+ *
+ * Elle est enregistrée **après** `regleContact` : les deux peuvent tomber dans le
+ * même tick, et `Scene.tick` replie les événements dans l'ordre où ils sont
+ * produits. Le contact passe donc d'abord, met le statut hors du vol, et la
+ * bouffée de gaz est ignorée par la garde de statut de son propre reducer — pas
+ * de panache sous un LEM déjà jugé.
+ */
+export const regleGaz: RegleManche = (etat, ctx) => {
+  if (etat.globals.statut !== "vol") return [];
+  const lem = byKind(etat, "lander")[0];
+  if (!lem || lem.inerte || lem.cran <= 0 || sansCarburant(lem)) return [];
+  return [{ type: "gaz-moteur", dt: ctx.dt }];
+};
+
+/**
+ * Mort des particules : une par particule dont l'âge a atteint sa durée de vie.
+ *
+ * **Sans cette règle, aucune particule ne quitte jamais la scène** : `Scene.tick`
+ * fait vieillir les entités mais ne retire rien, et `surParticuleMorte` n'a aucun
+ * émetteur. Le plafond `PARTICULES_MAX` deviendrait alors un interrupteur
+ * définitif — 30 particules par seconde au cran 5, donc 400 atteintes en 13 s de
+ * poussée — après quoi plus aucune particule, gaz, explosion ou poussière,
+ * n'apparaîtrait jusqu'à la manche suivante.
+ *
+ * Aucune garde de statut : les particules doivent finir de mourir pendant le
+ * bandeau de fin de manche, où la scène tourne toujours.
+ */
+export const regleParticules: RegleManche = (etat) => {
+  const morts: LemEvent[] = [];
+  for (const entite of etat.entities) {
+    if (entite.kind === "particle" && entite.age >= entite.life) {
+      morts.push({ type: "particle-died", particleId: entite.id });
+    }
+  }
+  return morts;
 };

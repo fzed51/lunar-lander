@@ -27,7 +27,8 @@ plan :
 - `DEPART_Y = 120`, `DEPART_DISTANCE = 250–400` m,
   `MONDE = { largeur: 1280, hauteur: 420 }`, surface dans
   `[TERRAIN_Y_MIN = 270, TERRAIN_Y_MAX = 400]` ;
-- `SEUILS_ZOOM = { vers2: 40, retour1: 60, vers4: 16, retour2: 24 }` ;
+- `SEUILS_ZOOM = { vers2: 40, retour1: 44, vers4: 16, retour2: 22 }` ;
+- `BIAIS_CAMERA_Y = 60` (px d'écran, zoom 1) ;
 - `PLATEFORME_ECHANTILLONS_BASE = 9` (40 m), plancher 5 échantillons (20 m) ;
 - terrain : `RUGOSITE_DOUCE = 0.15`, `RUGOSITE_ACCIDENTEE = 1.6`,
   `PENTE_MAX_DOUCE = 0.3`, pics et canyons.
@@ -132,12 +133,34 @@ plan :
     couvre rien : `denivele` sur la largeur du train interpole vers les
     échantillons voisins, il faut un pas entier de marge de chaque côté ;
   - les seuils de zoom sont bien ordonnés : `vers4 < retour2 < vers2 < retour1` ;
-  - **chaque seuil d'entrée tient dans la vue du zoom visé** :
-    `SEUILS_ZOOM.vers2 <= PIXEL.height / 4` et
-    `SEUILS_ZOOM.vers4 <= PIXEL.height / 8`. Sans cet invariant, le sol sort de
-    l'écran à l'instant du saut de zoom et l'hystérésis l'y maintient — l'ordre
-    des quatre seuils, lui, reste parfaitement vert ;
-  - `RUGOSITE_ACCIDENTEE` vaut au moins cinq fois `RUGOSITE_DOUCE`.
+  - **les quatre seuils tiennent dans la vue du zoom visé**, pas seulement les
+    deux d'entrée : `SEUILS_ZOOM.vers2 <= PIXEL.height / 4`,
+    `SEUILS_ZOOM.vers4 <= PIXEL.height / 8`, **et aussi**
+    `SEUILS_ZOOM.retour1 <= PIXEL.height / 4` et
+    `SEUILS_ZOOM.retour2 <= PIXEL.height / 8`. C'est le seuil de **retour** qui
+    décide jusqu'à quelle altitude on reste au zoom serré en remontant : sans
+    cette moitié de l'invariant, le sol peut sortir de l'écran sur toute la
+    bande d'hystérésis alors même que l'ordre des quatre seuils reste
+    parfaitement vert ;
+  - `RUGOSITE_ACCIDENTEE` vaut au moins cinq fois `RUGOSITE_DOUCE` ;
+  - **Chute au largage**, constat et non invariant testé (voir motif ci-dessous) :
+    avec les valeurs actuelles,
+    `TERRAIN_Y_MAX - DEPART_Y = 280` m dépasse `PIXEL.height / 2 +
+    BIAIS_CAMERA_Y = 150` m (zoom 1) : le relief reste hors champ jusqu'à
+    150 m d'altitude, même après le biais de caméra de T10. Pousser
+    `BIAIS_CAMERA_Y` au point de couvrir tout le pire cas (≈ 190 px)
+    déborderait la vue au zoom 2 (`190 / 2 = 95` m de décalage pour une
+    demi-vue de 45 m) et rapprocherait trop le LEM du bord haut de l'écran
+    pendant toute l'approche : ce n'est **pas** le bon levier. Rapprocher
+    `DEPART_Y` du sol romprait l'arbitrage déjà tranché au point 3 (« change
+    la nature de la manche »). **Arbitrage retenu ici** : garder
+    `BIAIS_CAMERA_Y = 60`, qui réduit substantiellement la fenêtre aveugle
+    sans l'annuler, et compter sur `dessineIndicateurCible` (T10) pour
+    signaler la cible tant qu'elle reste hors champ. Vérifier par le jeu que
+    l'attente avant que le relief ou la flèche n'apparaisse reste courte
+    (quelques secondes, pas ~13), et écrire ce constat, chiffré, au §6 du
+    cahier des charges plutôt que de prétendre l'écran toujours plein dès le
+    largage.
 
 ## Fini quand
 

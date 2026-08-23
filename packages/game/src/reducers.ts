@@ -6,7 +6,7 @@
  *
  * - **appliqués par la scène**, sur les événements des règles de tick :
  *   `surContact`, `surHorsLimites`, `surTempsVol`, `surMancheSuivante`,
- *   `surParticuleMorte` ;
+ *   `surGaz`, `surParticuleMorte` ;
  * - **appliqués par l'écran de jeu (T10)**, hors de la scène, à chaque image et
  *   **y compris en pause** : `surPause`, `surReprise`, `surAbandon`. Ces
  *   trois-là ne sont ni des `TickRule` ni des événements de scène : une règle de
@@ -27,13 +27,35 @@
  *
  * Sans cette écriture, `regleEnchainement` n'a aucun instant de référence et le
  * jeu reste bloqué sur le bandeau de fin de manche.
+ *
+ * ## Tout reducer qui crée des particules avance `tiragesParticules`
+ *
+ * Un `Rng` est mutable : il ne peut pas vivre dans un `GameState` immuable, et
+ * une variable de module serait un état de simulation caché. Chaque gerbe dérive
+ * donc son générateur de la graine de la partie, du numéro de manche **et** de ce
+ * compteur, qu'elle incrémente. Voir `rngParticules` plus bas.
  */
 
-import { removeEntities, surfaceEn, Vector2 } from "@lem/engine";
-import { LEM } from "./constants.ts";
-import { Lander } from "./entities/Lander.ts";
+import {
+  addEntities,
+  byKind,
+  createRng,
+  melangeGraine,
+  removeEntities,
+  surfaceEn,
+  Vector2,
+  type Rng,
+} from "@lem/engine";
+import { GAZ_BOUCHE, LEM, PARTICULES_MAX } from "./constants.ts";
+import { Lander, sansCarburant } from "./entities/Lander.ts";
+import {
+  explosion,
+  gaz,
+  poussiere,
+  type Gerbe,
+} from "./entities/Particle.ts";
 import type { Verdict } from "./landing.ts";
-import { nouvelleManche, type EtatPartie } from "./state.ts";
+import { nouvelleManche, type EtatPartie, type Globals } from "./state.ts";
 import type { LemEntity } from "./types.ts";
 
 /**
@@ -82,13 +104,94 @@ function figeLem(etat: EtatPartie, pose: boolean): readonly LemEntity[] {
   });
 }
 
+// --- Particules ---
+
+/**
+ * Particules encore **vivantes** dans une liste d'entités.
+ *
+ * Le plafond ne compte que celles-là : sans `regleParticules` pour retirer les
+ * autres de la scène le compte inclurait des particules mortes et invisibles, et
+ * `PARTICULES_MAX` serait atteint en quelques secondes sans jamais se libérer.
+ */
+function particulesVivantes(entites: readonly LemEntity[]): number {
+  let compte = 0;
+  for (const entite of entites) {
+    if (entite.kind === "particle" && entite.age < entite.life) compte++;
+  }
+  return compte;
+}
+
+/**
+ * Générateur d'une gerbe : dérivé de la graine de la **partie**, du numéro de
+ * manche et du nombre de gerbes déjà tirées.
+ *
+ * Les trois sont indispensables. Sans le numéro de manche, deux manches d'une
+ * même partie auraient les mêmes gerbes ; sans le compteur, **toutes** les gerbes
+ * d'une manche seraient identiques — un panache de gaz figé en un trait de pixels
+ * fixe sous la tuyère — sans qu'un test « déterministe à graine fixée » ne le
+ * signale, puisqu'il le resterait.
+ */
+function rngParticules(g: Globals): Rng {
+  return createRng(
+    melangeGraine(melangeGraine(g.graine, g.numeroManche), g.tiragesParticules),
+  );
+}
+
+/** Ce qu'une gerbe change dans l'état : les entités et deux compteurs. */
+interface AjoutGerbe {
+  readonly entities: readonly LemEntity[];
+  readonly nextId: number;
+  readonly tiragesParticules: number;
+}
+
+/**
+ * Ajoute une gerbe à une liste d'entités, **plafond respecté**.
+ *
+ * Au-delà de `PARTICULES_MAX` particules vivantes, rien n'est créé et aucun
+ * tirage n'est consommé : le compteur ne bouge pas non plus, puisque aucun
+ * générateur n'a été dérivé.
+ */
+function ajouteGerbe(
+  g: Globals,
+  entites: readonly LemEntity[],
+  fabrique: (startId: number, rng: Rng) => Gerbe,
+): AjoutGerbe {
+  if (particulesVivantes(entites) >= PARTICULES_MAX) {
+    return {
+      entities: entites,
+      nextId: g.nextId,
+      tiragesParticules: g.tiragesParticules,
+    };
+  }
+  const gerbe = fabrique(g.nextId, rngParticules(g));
+  return {
+    entities: [...entites, ...gerbe.particles],
+    nextId: gerbe.nextId,
+    tiragesParticules: g.tiragesParticules + 1,
+  };
+}
+
+/** Le LEM de l'état, ou `null` : les gerbes de contact partent de sa position. */
+function lemDe(etat: EtatPartie): Lander | null {
+  return byKind(etat, "lander")[0] ?? null;
+}
+
 /** Manche réussie : l'écart entre au score, une manche réussie de plus. */
 function enregistrePose(etat: EtatPartie, verdict: Verdict): EtatPartie {
   if (verdict.pose === false) return etat;
   const g = etat.globals;
+  const lem = lemDe(etat);
+  // La poussière se soulève sous les **pieds**, donc à la surface du relief, et
+  // non au centre du LEM qui est une demi-hauteur plus haut.
+  const origine = lem
+    ? new Vector2(lem.position.x, surfaceEn(g.terrain.hf, lem.position.x))
+    : Vector2.ZERO;
+  const ajout = ajouteGerbe(g, figeLem(etat, true), (id, rng) =>
+    poussiere(id, origine, rng),
+  );
   return {
     ...etat,
-    entities: figeLem(etat, true),
+    entities: ajout.entities,
     globals: {
       ...g,
       statut: "pose",
@@ -97,6 +200,8 @@ function enregistrePose(etat: EtatPartie, verdict: Verdict): EtatPartie {
       dernierVerdict: verdict,
       contactEmisPourManche: true,
       instantStatut: etat.time,
+      nextId: ajout.nextId,
+      tiragesParticules: ajout.tiragesParticules,
     },
   };
 }
@@ -109,9 +214,15 @@ function enregistrePose(etat: EtatPartie, verdict: Verdict): EtatPartie {
 function enregistrePerte(etat: EtatPartie, verdict: Verdict): EtatPartie {
   const g = etat.globals;
   const vies = g.vies - 1;
+  // L'explosion part du **centre** du LEM, là où il a été figé : dans la roche
+  // s'il s'y est enfoncé, dans le vide s'il est sorti du monde.
+  const origine = lemDe(etat)?.position ?? Vector2.ZERO;
+  const ajout = ajouteGerbe(g, figeLem(etat, false), (id, rng) =>
+    explosion(id, origine, rng),
+  );
   return {
     ...etat,
-    entities: figeLem(etat, false),
+    entities: ajout.entities,
     globals: {
       ...g,
       statut: vies <= 0 ? "fini" : "crash",
@@ -119,6 +230,8 @@ function enregistrePerte(etat: EtatPartie, verdict: Verdict): EtatPartie {
       dernierVerdict: verdict,
       contactEmisPourManche: true,
       instantStatut: etat.time,
+      nextId: ajout.nextId,
+      tiragesParticules: ajout.tiragesParticules,
     },
   };
 }
@@ -191,6 +304,59 @@ export function surMancheSuivante(etat: EtatPartie): EtatPartie {
     };
   }
   return nouvelleManche(etat);
+}
+
+/**
+ * Bouffée de gaz sous la tuyère, pour le `dt` écoulé.
+ *
+ * La garde de statut est doublée avec celle de `regleGaz` : la règle et le
+ * reducer sont de part et d'autre du repliement des événements, et le contact du
+ * même tick a pu faire passer le statut hors du vol entre les deux. Un panache
+ * craché sous un LEM déjà jugé serait un mensonge visuel.
+ *
+ * Le reste fractionnaire du débit repart dans `gazAccu`, et le compteur de
+ * tirages avance d'un cran : c'est ce qui fait que deux bouffées consécutives ne
+ * sont pas la même image copiée deux fois.
+ */
+export function surGaz(
+  etat: EtatPartie,
+  ev: { readonly dt: number },
+): EtatPartie {
+  const g = etat.globals;
+  if (g.statut !== "vol") return etat;
+  const lem = lemDe(etat);
+  if (!lem || lem.inerte || lem.cran <= 0 || sansCarburant(lem)) return etat;
+  if (particulesVivantes(etat.entities) >= PARTICULES_MAX) return etat;
+
+  // La bouche de la tuyère et l'axe du jet, tous deux tournés de l'assiette. Le
+  // gaz sort à l'opposé de la poussée : `y` croît vers le bas, donc l'axe de
+  // poussée est `assiette - π/2` et celui du jet `assiette + π/2`.
+  const bouche = lem.position.add(
+    new Vector2(0, GAZ_BOUCHE).rotate(lem.assiette),
+  );
+  const direction = Vector2.fromAngle(lem.assiette + Math.PI / 2);
+  const jet = gaz(
+    g.nextId,
+    bouche,
+    direction,
+    lem.cran,
+    ev.dt,
+    g.gazAccu,
+    rngParticules(g),
+  );
+  // `addEntities` rend l'état tel quel quand la gerbe est vide : une image sur
+  // deux au cran 5 à 60 Hz ne produit aucune particule — le reste fractionnaire
+  // n'a pas encore atteint 1 — et il n'y a aucune raison d'y recopier la liste
+  // entière des entités.
+  return {
+    ...addEntities(etat, jet.particles),
+    globals: {
+      ...g,
+      nextId: jet.nextId,
+      gazAccu: jet.reste,
+      tiragesParticules: g.tiragesParticules + 1,
+    },
+  };
 }
 
 /** Une particule a épuisé sa durée de vie : elle quitte la scène. */

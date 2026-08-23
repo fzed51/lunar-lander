@@ -1,11 +1,9 @@
-import { GameLoop, Vector2 } from "@lem/engine";
-import { PIXEL } from "./constants.ts";
-import { PALETTE } from "./design/palette.ts";
-import { dessineTexte } from "./design/font.ts";
+import { GameLoop } from "@lem/engine";
 import { creeSurface } from "./render/surface.ts";
+import { creeEcranJeu } from "./screens/game.ts";
+import { creeEcranAccueil } from "./screens/home.ts";
 import { GestionnaireEcrans } from "./screens/manager.ts";
 import type { Ecran, NomEcran, Transition } from "./screens/types.ts";
-import type { ResultatPartie } from "./state.ts";
 
 /**
  * Récupère un élément obligatoire de la page. Le type de retour n'est pas
@@ -19,13 +17,18 @@ function exige<T extends Element>(selecteur: string): T {
 }
 
 const ui = exige<HTMLElement>("#ui");
+// Deux surfaces, deux couches : `#fond` porte le décor animé des écrans en DOM,
+// `#game` la partie jouée. `#fond` est sous `#game` dans la page, et `#game` est
+// transparent : l'écran de jeu efface sa couche en sortant, sinon sa dernière
+// image masquerait le fond de tous les autres écrans.
+const fond = creeSurface(exige<HTMLCanvasElement>("#fond"));
 const surface = creeSurface(exige<HTMLCanvasElement>("#game"));
 const gestionnaire = new GestionnaireEcrans();
 
 /**
  * Écran bouchon en DOM : affiche son nom dans `#ui`, et demande l'écran suivant
- * au **front montant** de `confirm`. Les vrais écrans d'accueil, de fin de
- * partie et de hall of fame prendront cette place.
+ * au **front montant** de `confirm`. Les vrais écrans de fin de partie et de
+ * hall of fame prendront cette place.
  *
  * `suivante` est une fonction et non une valeur : la graine d'une partie se tire
  * au moment de la transition, pas au chargement de la page.
@@ -55,11 +58,10 @@ function bouchonDom(nom: NomEcran, suivante: () => Transition): Ecran {
       }
     },
     rend(): void {
-      // Un écran en DOM n'occupe pas la couche de jeu : on la repeint, sinon la
-      // dernière image de la partie resterait affichée derrière le HTML. Les
-      // vrais écrans en DOM dessineront leur fond animé sur la couche `#fond`,
-      // qui est sous celle-ci.
-      surface.renderer.clear(PALETTE.espace);
+      // Un écran en DOM n'occupe pas la couche de jeu : on l'**efface**, on ne
+      // la repeint pas. Un aplat opaque masquerait le fond animé de `#fond`, qui
+      // vit sous celle-ci — c'est précisément ce que l'accueil dessine.
+      surface.renderer.efface();
     },
     prendTransition(): Transition | null {
       const t = demande;
@@ -85,79 +87,18 @@ function invitationBouchon(): HTMLElement {
   return invite;
 }
 
-/**
- * Écran bouchon au canvas : le nom dessiné à la police bitmap, sur la couche de
- * jeu. La vraie partie prendra cette place.
- */
-function bouchonCanvas(nom: NomEcran, suivante: () => Transition): Ecran {
-  let demande: Transition | null = null;
-
-  return {
-    nom,
-    entre(): void {},
-    sort(): void {
-      demande = null;
-    },
-    tick(_dt, input): void {
-      if (demande === null && input.justPressed("confirm")) {
-        demande = suivante();
-      }
-    },
-    rend(): void {
-      const r = surface.renderer;
-      r.clear(PALETTE.espace);
-      dessineTexte(
-        r,
-        nom,
-        new Vector2(PIXEL.width / 2, 70),
-        PALETTE.blanc,
-        { align: "center", echelle: 2 },
-      );
-      dessineTexte(
-        r,
-        "ENTREE : ECRAN SUIVANT",
-        new Vector2(PIXEL.width / 2, 100),
-        PALETTE.grisPale,
-        { align: "center" },
-      );
-    },
-    prendTransition(): Transition | null {
-      const t = demande;
-      demande = null;
-      return t;
-    },
-  };
-}
-
-/** Bilan de partie vide, le temps que le vrai écran de jeu (T10) en produise un. */
-const RESULTAT_BOUCHON: ResultatPartie = {
-  manchesReussies: 0,
-  points: 0,
-  tempsDeVol: 0,
-  niveauDepart: 0,
-  abandonnee: false,
-};
-
-// Les quatre bouchons en cycle : accueil → jeu → fin → hof → accueil. Seul le
-// jeu vit sur le canvas ; les trois autres écrans sont en DOM, comme le seront
-// les vrais.
+// L'accueil, le jeu, et deux bouchons en DOM : accueil → jeu → fin → hof →
+// accueil. Les deux vrais écrans reçoivent leur surface de dessin, et l'écran de
+// jeu l'unique source de commandes de l'image ; ils ne créent ni l'une ni
+// l'autre. `fin` et `hof` resteront des bouchons jusqu'à ce que leurs tâches les
+// remplacent.
 gestionnaire
+  .enregistre(creeEcranAccueil({ renderer: fond.renderer }))
   .enregistre(
-    bouchonDom("accueil", () => ({
-      // Unique entropie extérieure du jeu : tous les tirages de la partie en
-      // descendront. Le vrai écran d'accueil la tirera au même endroit.
-      nom: "jeu",
-      params: { niveau: 0, graine: Date.now() },
-    })),
-  )
-  .enregistre(
-    bouchonCanvas("jeu", () => ({
-      // La variante `fin` porte le résultat de la partie (T9). Le bouchon n'en
-      // joue aucune : il publie un bilan vide, que le vrai écran de jeu (T10)
-      // remplacera par `resultatPartie(etat)`.
-      nom: "fin",
-      params: RESULTAT_BOUCHON,
-    })),
+    creeEcranJeu({
+      renderer: surface.renderer,
+      input: gestionnaire.sourcePartagee(),
+    }),
   )
   .enregistre(bouchonDom("fin", () => ({ nom: "hof" })))
   .enregistre(bouchonDom("hof", () => ({ nom: "accueil" })));

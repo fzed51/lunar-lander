@@ -81,6 +81,19 @@ export interface Globals {
   /** Relief de la manche en cours, avec sa cible et ses replis. */
   readonly terrain: Terrain;
 
+  /**
+   * Dotation de carburant (unités) embarquée au largage de la manche en cours.
+   * C'est le **dénominateur** de la jauge du tableau de bord (T11).
+   *
+   * Elle est posée à la création de la manche, quand sa difficulté est connue, et
+   * pas recalculée à l'affichage : `manchesReussies` est incrémenté par le verdict
+   * de posé, donc **avant** les deux secondes de bandeau de fin de manche. Un
+   * dénominateur recalculé pendant le bandeau descendrait d'un palier de
+   * difficulté et le pourcentage affiché bougerait sous les yeux du joueur, sans
+   * qu'une goutte ait été brûlée.
+   */
+  readonly carburantInitial: number;
+
   /** Graine de la **partie** : la seule entropie venue de l'extérieur. */
   readonly graine: number;
 
@@ -96,6 +109,25 @@ export interface Globals {
    * pureté et rend la partie non reproductible.
    */
   readonly gazAccu: number;
+
+  /**
+   * Nombre de gerbes de particules tirées depuis le début de la manche.
+   *
+   * C'est le **seul** moyen d'avoir un tirage aléatoire aux particules sans état
+   * caché : un `Rng` est mutable, il ne peut pas vivre dans un `GameState`
+   * immuable. Chaque reducer qui crée des particules dérive donc son générateur
+   * par `createRng(melangeGraine(melangeGraine(graine, numeroManche), tiragesParticules))`
+   * puis incrémente ce compteur.
+   *
+   * Ni un `Rng` de module ni un `Rng` recréé sans faire avancer le compteur ne
+   * feraient l'affaire : le premier est un état de simulation hors du
+   * `GameState`, non reproductible à graine égale puisqu'il dépendrait du nombre
+   * de ticks écoulés ; le second rendrait toutes les gerbes identiques — un
+   * panache de gaz figé en un trait de pixels fixe sous la tuyère, des explosions
+   * superposables d'une manche à l'autre — sans qu'aucun test « déterministe à
+   * graine fixée » ne le signale.
+   */
+  readonly tiragesParticules: number;
 
   /**
    * Valeur de `state.time` au **dernier changement de statut**.
@@ -194,10 +226,15 @@ export function nouvellePartie(
       tempsDeVol: 0,
       tempsManche: 0,
       terrain,
+      // Le réservoir plein du LEM neuf **est** la dotation de la manche : la lire
+      // sur lui plutôt que de rappeler `carburantInitial` interdit que les deux
+      // valeurs divergent un jour.
+      carburantInitial: lem.carburant,
       graine,
       dernierVerdict: null,
       abandonnee: false,
       gazAccu: 0,
+      tiragesParticules: 0,
       instantStatut: 0,
       contactEmisPourManche: false,
     },
@@ -235,9 +272,11 @@ export function nouvelleManche(etat: EtatPartie): EtatPartie {
       statut: "vol",
       numeroManche,
       terrain,
+      carburantInitial: lem.carburant,
       tempsManche: 0,
       dernierVerdict: null,
       gazAccu: 0,
+      tiragesParticules: 0,
       instantStatut: etat.time,
       contactEmisPourManche: false,
     },

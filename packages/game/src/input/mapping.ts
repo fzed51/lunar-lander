@@ -8,4 +8,7 @@ export const KEY_MAP: Record<string, Command> = {
   ArrowDown: "throttle-down",
   Enter: "confirm",
   Escape: "back",
+  // Le hall of fame s'ouvre depuis l'accueil. `KeyH` est le **code** de la
+  // touche, donc indépendant de la disposition du clavier.
+  KeyH: "hof",
 };

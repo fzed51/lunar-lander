@@ -1,0 +1,90 @@
+/* Style commun aux écrans en HTML : accueil, fin de partie, hall of fame.
+ *
+ * Chargé par src/style.css, juste après les tokens de couleur — et pas par un
+ * `import "./design/ui.css"` depuis un .ts : le projet compile avec
+ * `noUncheckedSideEffectImports` et sans type `vite/client`, un tel import
+ * échouerait au typecheck. Sans le chargement par style.css, ce fichier serait
+ * mort et les écrans n'hériteraient que de la typographie de la règle #ui.
+ *
+ * Règles du design system tenues ici : police monospace système (héritée de #ui,
+ * dans style.css), graisse 700, tailles 8 / 16 / 24 / 32 px, couleurs prises
+ * exclusivement dans les variables de palette.css, cadres à bord net d'un pixel.
+ * Aucune ombre, aucun arrondi, aucun dégradé, aucune transition : le rendu doit
+ * rester du pixel art, y compris hors du canvas.
+ */
+
+/* Le bloc d'un écran : une colonne centrée, qui ne sort jamais de la boîte de la
+   scène. Les gouttières valent 8 px, l'unité du design system : en fenêtre
+   étroite, la colonne entière tient dans les 180 px de hauteur du cadre. */
+.ecran {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.ecran > p {
+  margin: 0;
+  line-height: 1;
+}
+
+/* 32 px : la seule taille de titre. L'interlettrage est élargi, un titre court
+   en monospace paraissant sinon tassé. */
+.ecran-titre {
+  font-size: 32px;
+  letter-spacing: 4px;
+  color: var(--lem-blanc);
+}
+
+/* 16 px : l'action principale de l'écran. */
+.ecran-invite {
+  font-size: 16px;
+  color: var(--lem-blanc);
+}
+
+/* 8 px : les accès secondaires, dans la couleur d'accent. */
+.ecran-entree {
+  font-size: 8px;
+  color: var(--lem-accent);
+}
+
+/* 8 px : le rappel des contrôles, le plus discret de l'écran. */
+.ecran-aide {
+  font-size: 8px;
+  color: var(--lem-gris-clair);
+}
+
+/* Une rangée d'options exclusives. `flex-wrap` est là pour la fenêtre étroite :
+   les options passent à la ligne plutôt que de déborder du cadre. */
+.choix {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cadre d'un pixel, sans arrondi ni ombre : le bord doit tomber net sur la
+   grille, comme tout le reste du jeu. */
+.choix-option {
+  padding: 8px;
+  border: 1px solid var(--lem-relief-clair);
+  background: var(--lem-ombre);
+  font-size: 16px;
+  color: var(--lem-gris-pale);
+}
+
+/* L'option retenue s'inverse : fond d'accent, texte de la couleur du fond du
+   jeu. La sélection reste lisible sans recourir à une ombre ni à un dégradé. */
+.choix-option.est-choisi {
+  border-color: var(--lem-accent);
+  background: var(--lem-accent);
+  color: var(--lem-espace);
+}

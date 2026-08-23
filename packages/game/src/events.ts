@@ -24,18 +24,21 @@ import type { Verdict } from "./landing.ts";
  * - `hors-limites` — le LEM a quitté le monde ; la manche est perdue sans qu'il
  *   y ait de verdict de contact à rendre ;
  * - `particle-died` — une particule a épuisé sa durée de vie ;
+ * - `gaz-moteur` — le moteur tourne : une bouffée de gaz à cracher sous la
+ *   tuyère, pour le `dt` écoulé ;
  * - `temps-vol` — un pas de temps de vol de plus à porter au chrono ;
  * - `manche-suivante` — le bandeau de fin de manche a tenu son délai.
  *
- * Les deux derniers ne viennent pas d'une rencontre entre entités mais du
+ * Les trois derniers ne viennent pas d'une rencontre entre entités mais du
  * déroulement de la manche, et ils existent parce qu'une `TickRule` du moteur
  * **émet** sans jamais écrire l'état : seul un reducer écrit les globals. Un
- * chrono ou un enchaînement de manche calculé dans la règle elle-même n'aurait
- * nulle part où se ranger.
+ * chrono, un enchaînement de manche ou une gerbe de particules calculés dans la
+ * règle elle-même n'auraient nulle part où se ranger.
  */
 export type LemEvent =
   | { readonly type: "contact"; readonly verdict: Verdict }
   | { readonly type: "hors-limites" }
   | { readonly type: "particle-died"; readonly particleId: number }
+  | { readonly type: "gaz-moteur"; readonly dt: number }
   | { readonly type: "temps-vol"; readonly dt: number }
   | { readonly type: "manche-suivante" };
