@@ -116,7 +116,11 @@ ses deux pieds sont encore en l'air au-dessus du fond.
   de 0 point.
 - **Deux à quatre plateaux supplémentaires**, plus étroits, sont forés ailleurs
   sur le terrain : s'y rabattre est un choix sûr mais coûteux en points. Ils sont
-  garantis par la génération, pas espérés du hasard.
+  garantis par la génération, pas espérés du hasard. Le nombre demandé est de
+  deux à quatre et il est obtenu dans plus de 90 % des manches ; la géométrie ne
+  garantit toutefois qu'**un** plateau de secours, parce que les secteurs doux
+  disponibles peuvent n'offrir qu'une seule place assez loin de la cible. Un
+  terrain sans aucun repli, lui, est impossible.
 - Le **point de départ** du LEM est choisi par la génération, à 250–400 m de la
   cible, et le **signe de la dérive initiale** est orienté **vers** elle. Sans
   ça, une manche sur deux commence en s'éloignant du drapeau et le score est
@@ -140,10 +144,17 @@ ses deux pieds sont encore en l'air au-dessus du fond.
 
 Le score est un **malus** : c'est un écart, **le plus petit gagne**.
 
-- **Points d'une manche réussie** = distance du **centre du LEM au moment du
-  contact** au pied du drapeau, en mètres, arrondie à l'entier. Un posage exact
-  sur la cible vaut 0. C'est le centre, et non le pied qui touche : sinon
-  l'assiette décalerait le score d'un demi-train.
+- **Points d'une manche réussie** = **écart horizontal** entre le **centre du
+  LEM au moment du contact** et le mât du drapeau, en mètres, arrondi à
+  l'entier. Un posage exact sur la cible vaut 0. C'est le centre, et non le pied
+  qui touche : sinon l'assiette décalerait le score d'un demi-train. Et c'est un
+  écart **horizontal**, pas une distance euclidienne : au contact, le centre du
+  LEM est à une demi-hauteur de module au-dessus de la surface, soit 3,5 m,
+  alors que la cible **est** la surface. Une distance euclidienne vaudrait donc
+  toujours au moins 4 points arrondis, et le « score parfait de 0 point » promis
+  au §5 serait inatteignable. C'est aussi le sens de « distance au drapeau » pour
+  un score de golf : on mesure l'écart au trou sur le terrain, pas l'altitude de
+  la balle.
 - Une manche perdue n'ajoute pas de points (elle coûte une vie).
 - **Score de la partie** = **somme** des écarts de toutes les manches réussies.
   Conséquence assumée : une partie longue accumule des points, donc le total

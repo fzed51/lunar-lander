@@ -1,4 +1,5 @@
 import type { InputSnapshot } from "@lem/engine";
+import type { ResultatPartie } from "../state.ts";
 import type { Command } from "../types.ts";
 
 /**
@@ -11,9 +12,9 @@ import type { Command } from "../types.ts";
  * `entre(params)` qui exige son argument.
  *
  * Les variantes sans charge utile sont déclarées ici **sans** `params` : elles
- * seront **enrichies** — pas créées — par les tâches qui produisent leurs types
- * (le résultat de partie pour `fin`, l'entrée mise en avant pour `hof`). Pas de
- * `unknown` de complaisance en attendant.
+ * sont **enrichies** — pas créées — par les tâches qui produisent leurs types.
+ * `fin` porte ainsi le `ResultatPartie` de T9 ; `hof` attend encore l'entrée mise
+ * en avant de T14. Pas de `unknown` de complaisance en attendant.
  *
  * La `graine` de la variante `jeu` est la **seule** entropie extérieure du jeu :
  * tous les tirages d'une partie en descendent, et c'est l'écran d'accueil qui la
@@ -22,7 +23,7 @@ import type { Command } from "../types.ts";
 export type Transition =
   | { nom: "accueil" }
   | { nom: "jeu"; params: { niveau: 0 | 1 | 2; graine: number } }
-  | { nom: "fin" }
+  | { nom: "fin"; params: ResultatPartie }
   | { nom: "hof" };
 
 /**

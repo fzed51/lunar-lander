@@ -3,7 +3,7 @@ import {
   type EntityBase,
   type Steppable,
 } from "@lem/engine";
-import type { LemEntity, Command } from "../types.ts";
+import type { Command } from "../types.ts";
 import { PARTICLE_LIFE, PARTICLE_SPEED } from "../constants.ts";
 
 /** Rayon (visuel) d'une particule. */
@@ -14,7 +14,7 @@ const PARTICLE_RADIUS = 1;
  * participe à aucune collision. Porte son `age` (s) : une règle la retire à
  * `age >= life`, et le rendu fait fondre son opacité sur `age/life`.
  */
-export class Particle implements EntityBase, Steppable<LemEntity, Command> {
+export class Particle implements EntityBase, Steppable<Particle, Command> {
   readonly kind = "particle" as const;
 
   constructor(
@@ -26,7 +26,7 @@ export class Particle implements EntityBase, Steppable<LemEntity, Command> {
     readonly radius: number = PARTICLE_RADIUS,
   ) {}
 
-  step(dt: number): LemEntity {
+  step(dt: number): Particle {
     return new Particle(
       this.id,
       this.position.add(this.velocity.scale(dt)),

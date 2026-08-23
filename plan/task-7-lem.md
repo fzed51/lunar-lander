@@ -1,7 +1,7 @@
 ---
 id: T7
 titre: Entité LEM — assiette, six crans de poussée, carburant, physique
-fichiers: packages/game/src/entities/Lander.ts, packages/game/src/entities/Lander.test.ts, packages/game/src/types.ts, packages/game/src/constants.ts
+fichiers: packages/game/src/entities/Lander.ts, packages/game/src/entities/Lander.test.ts, packages/game/src/types.ts, packages/game/src/constants.ts, packages/game/src/entities/Particle.ts
 sensible: false
 ---
 
@@ -44,6 +44,13 @@ consommation de carburant, chute sous la gravité lunaire.
    `kind = "lander"`, champs `readonly` :
    `id`, `position`, `velocity`, `assiette` (rad, 0 = debout, positif vers la
    droite), `cran` (entier 0…5), `carburant` (unités), `radius`.
+   Tous les champs après `position` ont une valeur par défaut, `carburant`
+   compris — il vaut **0** par défaut. **Aucune constante de dotation initiale de
+   carburant n'est ajoutée ici** : la dotation dépend de la manche et de la
+   difficulté progressive, elle est posée en T9 (`CARBURANT_BASE`,
+   `CARBURANT_PENTE`, `CARBURANT_MIN` et `carburantInitial`).
+   T9 a ajouté un huitième champ à ce constructeur, `inerte: boolean = false` :
+   voir le point 6.
 3. `step(dt, input)` applique, dans cet ordre :
    1. **assiette** : `tilt-left` / `tilt-right` tenus font tourner à
       `VITESSE_ROTATION`, écrêtée à `±ASSIETTE_MAX` ;
@@ -60,6 +67,23 @@ consommation de carburant, chute sous la gravité lunaire.
    vide) et `sansCarburant(lem): boolean`.
 5. Ajouter `Lander` à l'union `LemEntity` et à `Command` rien de plus (les six
    commandes existantes suffisent).
+   **Conséquence non prévue, tranchée à l'implémentation** : élargir `LemEntity`
+   casse le `typecheck` de `entities/Particle.ts`, qui déclarait
+   `implements Steppable<LemEntity, Command>` et `step(dt): LemEntity`. Avec deux
+   variantes dans l'union, `Particle` ne satisfait plus
+   `EntityBase & Steppable<Particle, Command>` — ce que le test existant
+   `screens/manager.test.ts` exige en typant sa `Scene<Particle, …>`. Correction
+   retenue : **auto-typer `Particle`**
+   (`implements Steppable<Particle, Command>`, `step(dt): Particle`), conforme au
+   commentaire F-borné de `Steppable` dans le moteur, et retirer l'import
+   `LemEntity` devenu inutile. `Particle.ts` sort donc de l'en-tête `fichiers:`
+   de cette fiche, mais le test existant n'est pas touché.
+6. **Ajout de T9 dans ce fichier** : `readonly inerte: boolean = false` en
+   dernier paramètre du constructeur, et `if (this.inerte) return this;` en tête
+   de `step`. Le gel du LEM après le verdict ne tient pas d'un tick à l'autre sans
+   lui — `Scene.tick` appelle `step` sur toutes les entités à **chaque** tick, et
+   `step` ne voit pas les globals. Le drapeau vit dans l'entité, donc dans le
+   `GameState` : pas d'état de simulation caché. Détail et justification en T9.
 
 ## Gardes et cas limites
 
@@ -98,8 +122,8 @@ consommation de carburant, chute sous la gravité lunaire.
 
 ## Fini quand
 
-- [ ] `Lander` est immuable, dans l'union `LemEntity`, testé sur tous les cas
+- [x] `Lander` est immuable, dans l'union `LemEntity`, testé sur tous les cas
       ci-dessus.
-- [ ] Le cran est piloté au front montant, borné, entier.
-- [ ] Le réservoir vide coupe la poussée sans figer le reste de la simulation.
-- [ ] La commande de vérification du README du plan passe au vert.
+- [x] Le cran est piloté au front montant, borné, entier.
+- [x] Le réservoir vide coupe la poussée sans figer le reste de la simulation.
+- [x] La commande de vérification du README du plan passe au vert.

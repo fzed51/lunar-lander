@@ -1,3 +1,4 @@
+import type { Lander } from "./entities/Lander.ts";
 import type { Particle } from "./entities/Particle.ts";
 
 /**
@@ -13,18 +14,20 @@ export type Command =
   | "back";
 
 /** Union discriminée des entités du jeu. */
-export type LemEntity = Particle;
+export type LemEntity = Lander | Particle;
 
 /**
  * Union discriminée des événements émis en phase interact, appliqués par les
- * reducers en phase état final.
+ * reducers en phase état final. Elle vit dans `events.ts`, avec les charges
+ * utiles de chaque variante, et n'est reprise ici que pour rester importable
+ * d'un seul endroit.
  */
-export type LemEvent = { type: "particle-died"; particleId: number };
+export type { LemEvent } from "./events.ts";
 
 /**
- * Données globales de la manche. Portent ce qui ne meurt pas avec une entité.
- * Générateur d'ids PUR : incrémenté par les reducers qui spawnent.
+ * Données globales de la partie et de sa manche en cours. Elles vivent dans
+ * `state.ts`, avec la création de partie et de manche qui les fabrique, et ne
+ * sont reprises ici que pour rester importables d'un seul endroit — comme
+ * `LemEvent`.
  */
-export interface Globals {
-  readonly nextId: number;
-}
+export type { Globals, Statut, EtatPartie } from "./state.ts";

@@ -3,8 +3,33 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Scene, type GameState, type InputSnapshot, type InputSource } from "@lem/engine";
 import { GestionnaireEcrans } from "./manager.ts";
 import type { Ecran, NomEcran, Transition } from "./types.ts";
-import type { Command, Globals, LemEvent } from "../types.ts";
+import type { Command, LemEvent } from "../types.ts";
 import type { Particle } from "../entities/Particle.ts";
+import type { ResultatPartie } from "../state.ts";
+
+/**
+ * Globals minimaux pour la `Scene` de ce fichier. Ce test ne prouve qu'une chose
+ * — un seul sondage du clavier par image — et n'a que faire des globals de la
+ * partie : un sac d'ids suffit, et le garder local évite de faire dépendre la
+ * couche écrans de l'état du jeu.
+ */
+interface GlobalsScene {
+  readonly nextId: number;
+}
+
+/** Bilan de partie neutre : la variante `fin` de `Transition` porte sa charge utile. */
+const RESULTAT: ResultatPartie = {
+  manchesReussies: 0,
+  points: 0,
+  tempsDeVol: 0,
+  niveauDepart: 0,
+  abandonnee: false,
+};
+
+/** Transition vers l'écran de fin, params compris. */
+function versFin(): Transition {
+  return { nom: "fin", params: RESULTAT };
+}
 
 /** Transition vers le jeu, params compris : la variante la plus chargée. */
 function versJeu(graine = 42): Transition {
@@ -218,7 +243,7 @@ describe("GestionnaireEcrans — tick et rendu", () => {
     const hof = new Bouchon("hof");
     const accueil = new Bouchon("accueil", {
       auTick: (b) => {
-        b.note({ nom: "fin" });
+        b.note(versFin());
         b.note({ nom: "hof" }); // ignorée : la case est prise
       },
     });
@@ -236,7 +261,7 @@ describe("GestionnaireEcrans — tick et rendu", () => {
     // `jeu` note sa demande dès son activation : elle ne doit pas partir en
     // récursion pendant l'activation, mais au tick suivant.
     const jeu = new Bouchon("jeu", {
-      auEntre: (b) => b.note({ nom: "fin" }),
+      auEntre: (b) => b.note(versFin()),
     });
     const accueil = new Bouchon("accueil", { suivante: () => versJeu() });
     gestionnaire.enregistre(accueil).enregistre(jeu).enregistre(fin);
@@ -287,7 +312,7 @@ describe("GestionnaireEcrans — consommation de la demande", () => {
 
   it("un tour complet des quatre écrans, un appui par écran, puis plus rien", () => {
     const accueil = new Bouchon("accueil", { suivante: () => versJeu() });
-    const jeu = new Bouchon("jeu", { suivante: () => ({ nom: "fin" }) });
+    const jeu = new Bouchon("jeu", { suivante: () => versFin() });
     const fin = new Bouchon("fin", { suivante: () => ({ nom: "hof" }) });
     const hof = new Bouchon("hof", { suivante: () => ({ nom: "accueil" }) });
     gestionnaire
@@ -329,10 +354,10 @@ describe("GestionnaireEcrans — sondage unique du clavier", () => {
   });
 
   it("reste à un seul sondage quand une Scene consomme la source partagée", () => {
-    const scene = new Scene<Particle, LemEvent, Globals, Command>({
+    const scene = new Scene<Particle, LemEvent, GlobalsScene, Command>({
       input: gestionnaire.sourcePartagee(),
     });
-    let etat: GameState<Particle, Globals> = {
+    let etat: GameState<Particle, GlobalsScene> = {
       entities: [],
       globals: { nextId: 0 },
       time: 0,

@@ -40,7 +40,9 @@ observable :
 2. Une **partie** de 3 vies qui enchaîne des manches. Chaque manche génère un
    terrain lunaire procédural de 1280 m de large : des secteurs doux, des
    secteurs accidentés avec pics et canyons, une plateforme plate portant le
-   drapeau cible, deux à quatre plateaux de repli, et un point de départ situé à
+   drapeau cible, un à quatre plateaux de repli (deux à quatre demandés et
+   obtenus dans plus de 90 % des manches, un seul garanti par la géométrie —
+   voir T6), et un point de départ situé à
    250–400 m de la cible avec une dérive initiale orientée vers elle.
 3. Un **LEM** piloté aux quatre flèches : ← / → pour l'assiette, ↑ / ↓ pour la
    puissance moteur sur 6 crans mémorisés. Gravité 1,62 m/s², carburant compté,
@@ -127,8 +129,18 @@ de **16 couleurs** figée par un design system commun au canvas et au DOM.
   jamais de nombre magique disséminé dans les règles.
 - Les tests existants (33 dans le moteur, 4 dans le jeu) sont **intouchables** :
   aucun ne doit être supprimé, désactivé ni affaibli. Après T1–T5 le dépôt en
-  compte 116 dans le moteur et 73 dans le jeu, les 37 d'origine inclus et non
-  modifiés.
+  comptait 116 dans le moteur et 73 dans le jeu ; **après T6–T9, 116 dans le
+  moteur et 224 dans le jeu**, les 37 d'origine inclus et non modifiés. T9 a
+  adapté `screens/manager.test.ts` de façon **strictement mécanique** — une
+  fabrique `versFin()` pour la charge utile de la variante `fin`, un type de
+  globals local — sans toucher une assertion : ses 15 tests passent inchangés.
+- **`packages/game` n'a pas `@types/node`** : un test ne peut donc pas lire le
+  source d'un fichier (`import { readFileSync } from "node:fs"` échoue au
+  `typecheck`), et ajouter la dépendance sortirait du périmètre. Les gardes du
+  genre « aucun `Math.random` dans ce fichier », « aucune couleur littérale » se
+  prouvent donc par le **comportement** : piège qui lève à la place de
+  `Math.random`, faux contexte canvas qui collecte les couleurs posées. Vaut pour
+  T6, T9 et surtout T10, dont la fiche prévoyait deux tests de lecture de source.
 
 ## Découpage
 
@@ -154,12 +166,25 @@ de **16 couleurs** figée par un design system commun au canvas et au DOM.
 
 L'ordre du tableau est l'ordre d'exécution : les tâches sont jouées en série.
 
-**T1 à T5 sont faites.** Les fondations sont en place : design system (palette
-générée, police bitmap 5 × 7), `Rng` et `heightfield` dans le moteur, `Camera` et
-les cinq primitives de dessin, `KeyboardInput` corrigé, surface pixel et machine
-à écrans avec ses quatre bouchons. Aucun gameplay : pas de terrain, pas de LEM,
-pas de score. Les fiches T1 à T5 ont été mises à jour avec les signatures et les
-valeurs réellement retenues — les lire avant d'attaquer T6.
+**T1 à T9 sont faites.** Les fondations (T1–T5) : design system (palette générée,
+police bitmap 5 × 7), `Rng` et `heightfield` dans le moteur, `Camera` et les cinq
+primitives de dessin, `KeyboardInput` corrigé, surface pixel et machine à écrans
+avec ses quatre bouchons. Le gameplay (T6–T9) : `terrain.ts` (relief procédural,
+secteurs, plateforme cible, replis, départ), `entities/Lander.ts` (assiette, six
+crans, carburant, gravité), `landing.ts` (coque, verdict, causes de crash),
+`events.ts`, `state.ts` (partie, manche, `Globals`, `ResultatPartie`),
+`difficulty.ts`, `score.ts`, `rules.ts` (trois règles de tick) et `reducers.ts`
+(cinq reducers de scène, trois reducers de pause appliqués par l'écran).
+
+**Rien n'est encore dessiné** : le bouchon canvas de `main.ts` reste en place, il
+n'y a ni `screens/game.ts`, ni `render/draw.ts`, ni HUD. C'est le run C.
+
+Les fiches T1 à T9 ont été mises à jour avec les signatures et les valeurs
+réellement retenues — les lire avant d'attaquer T10. Trois écarts du run B
+touchent directement la suite : les tests ne peuvent pas lire les sources (voir
+les contraintes), `Transition` porte maintenant `params: ResultatPartie` sur sa
+variante `fin`, et `Lander` porte un champ `inerte` qui gèle son `step` après le
+verdict.
 
 La logique du hall of fame (T14) passe **avant** les deux écrans qui l'utilisent
 (T15, T16). C'est volontaire : faire les écrans d'abord obligerait à inventer une
@@ -189,6 +214,11 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       `CARBURANT_PENTE = 18`, dérive initiale 8 / 14 / 20 m/s). Posés pour être
       jouables, pas démontrés. T17 les réajuste et reporte les valeurs finales
       dans le cahier des charges.
+      État après T9 : toutes ces valeurs sont dans `constants.ts` telles
+      qu'annoncées, aucune n'a été retouchée à l'implémentation, et `Lander` comme
+      `difficulty.ts` les respectent au chiffre près dans leurs tests. Mais rien
+      n'est encore **joué** : il n'y a pas d'écran de jeu, donc pas une seconde de
+      manette. L'inconnue reste entière.
 - [ ] **Plafond de difficulté à 2,4** : l'arbitrage retenu veut qu'il reste
       **franchissable**, donc que le carburant y suffise encore à annuler la
       dérive et à freiner la chute — sur le **pire** terrain (chute de
@@ -196,10 +226,27 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       plan : on garde 2,4 et on passe `CARBURANT_PENTE` de 25 à 18, ce qui donne
       96,8 u au plafond contre ≈ 83 u de besoin (marge 17 %). T17 le vérifie par
       le calcul et par le jeu.
+      État après T9 : `DIFFICULTE_MAX = 2.4` et `CARBURANT_PENTE = 18` sont dans
+      `constants.ts`, et `difficulty.test.ts` chiffre le réservoir au plafond —
+      `toBeCloseTo(96.8, 10)`, `140 - 18 * 2.4` valant `96.80000000000001` en
+      flottant. Le calcul de besoin (≈ 83 u) n'est **pas** encore vérifié par un
+      test, et la vérification « par le jeu » attend l'écran. Inconnue toujours
+      ouverte.
 - [ ] **Contraste de rugosité du terrain** (`RUGOSITE_DOUCE = 0,15` contre
       `RUGOSITE_ACCIDENTEE = 1,6`, plus la passe de pics et de canyons) : le
       relief doit vraiment offrir des secteurs infranchissables et des secteurs
       posables. Vérifié statistiquement en T6, réajusté à l'œil en T17.
+      `AMPLITUDE_INITIALE` est passée de 60 à 18 pour que la surface tienne dans
+      la bande sans écrêtage — un écrêtage aux bornes fabriquait des mesas plates
+      donc posables au milieu des secteurs accidentés. Cette baisse seule a rendu
+      le relief trop plat à l'échelle du train : 49 % des abscisses d'un secteur
+      accidenté acceptaient encore le LEM. `AMPLITUDE_DECROISSANCE` est donc
+      passée de 0,55 à 0,70, ce qui remonte la dernière itération du point milieu
+      de 0,27 à 1,5 m sans toucher à la macro-forme (la normalisation affine
+      ramène de toute façon la surface dans la bande). Mesuré sur 200 graines à
+      difficulté 2,4 : 10 % d'abscisses posables en secteur accidenté contre
+      89 % en secteur doux, et `terrain.test.ts` borne désormais ces deux
+      fractions.
 - [ ] **Seuils de zoom et hystérésis** (40 / 60 et 16 / 24 m) : assez larges pour
       ne pas clignoter, assez serrés pour que la vue rapprochée arrive à temps,
       et **bornés par la demi-hauteur de vue du zoom visé** (45 m au zoom 2,

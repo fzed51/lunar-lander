@@ -5,6 +5,7 @@ import { dessineTexte } from "./design/font.ts";
 import { creeSurface } from "./render/surface.ts";
 import { GestionnaireEcrans } from "./screens/manager.ts";
 import type { Ecran, NomEcran, Transition } from "./screens/types.ts";
+import type { ResultatPartie } from "./state.ts";
 
 /**
  * Récupère un élément obligatoire de la page. Le type de retour n'est pas
@@ -128,6 +129,15 @@ function bouchonCanvas(nom: NomEcran, suivante: () => Transition): Ecran {
   };
 }
 
+/** Bilan de partie vide, le temps que le vrai écran de jeu (T10) en produise un. */
+const RESULTAT_BOUCHON: ResultatPartie = {
+  manchesReussies: 0,
+  points: 0,
+  tempsDeVol: 0,
+  niveauDepart: 0,
+  abandonnee: false,
+};
+
 // Les quatre bouchons en cycle : accueil → jeu → fin → hof → accueil. Seul le
 // jeu vit sur le canvas ; les trois autres écrans sont en DOM, comme le seront
 // les vrais.
@@ -140,7 +150,15 @@ gestionnaire
       params: { niveau: 0, graine: Date.now() },
     })),
   )
-  .enregistre(bouchonCanvas("jeu", () => ({ nom: "fin" })))
+  .enregistre(
+    bouchonCanvas("jeu", () => ({
+      // La variante `fin` porte le résultat de la partie (T9). Le bouchon n'en
+      // joue aucune : il publie un bilan vide, que le vrai écran de jeu (T10)
+      // remplacera par `resultatPartie(etat)`.
+      nom: "fin",
+      params: RESULTAT_BOUCHON,
+    })),
+  )
   .enregistre(bouchonDom("fin", () => ({ nom: "hof" })))
   .enregistre(bouchonDom("hof", () => ({ nom: "accueil" })));
 
