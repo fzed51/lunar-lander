@@ -113,18 +113,47 @@ export class Renderer {
    * C'est ce qu'il faut pour une crête de terrain, qu'un `drawPolygon`
    * refermerait par un segment traversant tout l'écran.
    *
-   * Un `fill` refermerait le contour implicitement : pour un relief, on remplit
-   * le corps à part et on ne passe ici qu'un `stroke`.
+   * Peint en `fillRect` par pixel entier (Bresenham), pas en `ctx.stroke()` :
+   * sur des coordonnées entières, `stroke()` centre le trait sur le chemin et
+   * l'étale sur deux rangées de pixels à moitié opaques. `strokeRect` évite déjà
+   * ce défaut pour les rectangles ; ceci fait la même chose pour une ligne
+   * brisée quelconque.
    */
   drawPolyline(points: readonly Vector2[], opts: StrokeFill = {}): void {
     if (points.length < 2) return;
     const ctx = this.ctx;
-    ctx.beginPath();
-    ctx.moveTo(points[0]!.x, points[0]!.y);
+    const epaisseur = Math.max(1, Math.round(opts.lineWidth ?? 1));
+    ctx.fillStyle = opts.stroke ?? opts.fill ?? "#fff";
     for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i]!.x, points[i]!.y);
+      this.traceSegment(points[i - 1]!, points[i]!, epaisseur);
     }
-    this.paint(opts);
+  }
+
+  /** Un `fillRect` par pixel entier du segment, algorithme de Bresenham. */
+  private traceSegment(a: Vector2, b: Vector2, epaisseur: number): void {
+    const ctx = this.ctx;
+    let x = Math.round(a.x);
+    let y = Math.round(a.y);
+    const xFin = Math.round(b.x);
+    const yFin = Math.round(b.y);
+    const dx = Math.abs(xFin - x);
+    const dy = -Math.abs(yFin - y);
+    const sx = x < xFin ? 1 : -1;
+    const sy = y < yFin ? 1 : -1;
+    let erreur = dx + dy;
+    for (;;) {
+      ctx.fillRect(x, y, epaisseur, epaisseur);
+      if (x === xFin && y === yFin) break;
+      const e2 = 2 * erreur;
+      if (e2 >= dy) {
+        erreur += dy;
+        x += sx;
+      }
+      if (e2 <= dx) {
+        erreur += dx;
+        y += sy;
+      }
+    }
   }
 
   drawCircle(center: Vector2, r: number, opts: StrokeFill = {}): void {
