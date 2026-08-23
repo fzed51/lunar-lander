@@ -165,6 +165,12 @@ de **16 couleurs** figée par un design system commun au canvas et au DOM.
 | T17 | `task-17-equilibrage-doc.md` | Équilibrage des réglages et mise à jour de la documentation | tout |
 
 L'ordre du tableau est l'ordre d'exécution : les tâches sont jouées en série.
+**Exception constatée après coup** : `render/draw.ts` (T10) importe désormais
+deux constantes de mise en page de `render/hud.ts` (T11) pour l'écrêtage de
+l'indicateur de cible — un défaut trouvé après implémentation a inversé la
+dépendance déclarée dans la colonne ci-dessus. Sans conséquence ici puisque les
+deux tâches sont faites, mais à garder en tête pour toute relecture isolée de
+T10.
 
 **T1 à T9 sont faites.** Les fondations (T1–T5) : design system (palette générée,
 police bitmap 5 × 7), `Rng` et `heightfield` dans le moteur, `Camera` et les cinq
@@ -176,15 +182,35 @@ crans, carburant, gravité), `landing.ts` (coque, verdict, causes de crash),
 `difficulty.ts`, `score.ts`, `rules.ts` (trois règles de tick) et `reducers.ts`
 (cinq reducers de scène, trois reducers de pause appliqués par l'écran).
 
-**Rien n'est encore dessiné** : le bouchon canvas de `main.ts` reste en place, il
-n'y a ni `screens/game.ts`, ni `render/draw.ts`, ni HUD. C'est le run C.
+**T10 à T13 sont faites** (run C, dessin uniquement). L'écran de jeu
+(`screens/game.ts`) dessine relief, LEM, flamme, drapeau, étoiles en parallaxe et
+zoom entier à hystérésis (`render/draw.ts`, `render/stars.ts`) ; le HUD chiffré à
+seuils colorés (`render/hud.ts`) ; les particules d'explosion, de poussière et de
+gaz moteur, portées par deux règles de tick de plus que prévu (`regleGaz` et
+`regleParticules`, `entities/Particle.ts`) ; l'écran d'accueil avec son fond animé
+(Terre, ciel, sol, drapeau — `render/background.ts`), le choix du niveau et
+l'accès au hall of fame (`screens/home.ts`). `main.ts` enregistre désormais les
+deux vrais écrans (`accueil`, `jeu`) ; `fin` et `hof` restent des bouchons DOM en
+attente de T15/T16. `packages/engine/src/render/Renderer.ts` a gagné une
+primitive `efface()` (`clearRect`), nécessaire pour que la couche de jeu ne
+masque plus le fond animé de l'accueil au retour. Un défaut constaté après
+implémentation a été corrigé : l'indicateur de cible, écrêté aux seuls bords de
+l'écran, tombait au largage derrière les jauges du HUD ; il se peint maintenant
+**après** le HUD et son écrêtage évite désormais les deux jauges (voir T10, T11).
+121 tests dans le moteur, 439 dans le jeu.
 
-Les fiches T1 à T9 ont été mises à jour avec les signatures et les valeurs
-réellement retenues — les lire avant d'attaquer T10. Trois écarts du run B
+Les fiches T1 à T13 ont été mises à jour avec les signatures et les valeurs
+réellement retenues — les lire avant d'attaquer T14. Écarts du run B qui
 touchent directement la suite : les tests ne peuvent pas lire les sources (voir
-les contraintes), `Transition` porte maintenant `params: ResultatPartie` sur sa
-variante `fin`, et `Lander` porte un champ `inerte` qui gèle son `step` après le
-verdict.
+les contraintes), `Transition` porte `params: ResultatPartie` sur sa variante
+`fin`, et `Lander` porte un champ `inerte` qui gèle son `step` après le verdict.
+Écarts du run C à connaître avant T14–T17 : `EcranJeu` (retour de
+`creeEcranJeu`) expose `etat()` et `camera()` en lecture seule, en plus du
+contrat `Ecran` ; `Globals` porte maintenant `carburantInitial`,
+`tiragesParticules` et `gazAccu` ; `types.ts` porte la commande `hof` ; `draw.ts`
+(T10) et `hud.ts` (T11) sont mutuellement dépendants (l'indicateur de cible lit
+les bandes du HUD pour son écrêtage) et `render/draw.ts` (T10) est aussi touché
+par T13 (export d'`ONDULATION`, réutilisée par le drapeau du fond).
 
 La logique du hall of fame (T14) passe **avant** les deux écrans qui l'utilisent
 (T15, T16). C'est volontaire : faire les écrans d'abord obligerait à inventer une
@@ -207,8 +233,14 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       État après T5 : les deux typographies coexistent réellement à l'écran
       (bouchons DOM à 32 / 16 px sur `#ui`, bouchon `jeu` à la police bitmap sur
       `#game`) et la typographie DOM est posée sur la règle `#ui` de `style.css`
-      — pas en variables CSS, faute de besoin. Rien de bloquant constaté ;
-      l'arbitrage final reste à T13, écran complet sous les yeux.
+      — pas en variables CSS, faute de besoin. Rien de bloquant constaté.
+      État après T13 : `design/ui.css` est écrit et **chargé** (`@import` dans
+      `style.css`, vérifié présent dans `dist/assets/*.css` au build) — cadres
+      nets d'un pixel, tailles 8/16/24/32, couleurs de tokens. L'accueil rend
+      son titre et sa sélection de niveau sur ce style. **Contrôle à l'œil non
+      fait** (pas de navigateur dans cet environnement d'implémentation) :
+      remplacé par un rendu ASCII hors écran du fond animé, jugé conforme.
+      L'arbitrage définitif reste à faire par un humain via `yarn dev`.
 - [ ] **Jouabilité des réglages chiffrés** (poussée max 4,0 m/s², consommation
       0,8 u/s par cran, réservoirs 140 / 122 / 104 u avec
       `CARBURANT_PENTE = 18`, dérive initiale 8 / 14 / 20 m/s). Posés pour être
@@ -219,6 +251,12 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       `difficulty.ts` les respectent au chiffre près dans leurs tests. Mais rien
       n'est encore **joué** : il n'y a pas d'écran de jeu, donc pas une seconde de
       manette. L'inconnue reste entière.
+      État après T10–T13 : l'écran de jeu, le HUD et l'accueil existent
+      réellement et `yarn dev` ouvre un jeu manipulable au clavier. Mais aucune
+      manette n'a encore été tenue dans **cet** environnement d'implémentation
+      (pas de navigateur) : la jouabilité a été sondée uniquement par du calcul
+      et des simulations chiffrées (voir les gardes de T10), jamais par une
+      partie réellement jouée. L'inconnue reste entière, à lever en T17.
 - [ ] **Plafond de difficulté à 2,4** : l'arbitrage retenu veut qu'il reste
       **franchissable**, donc que le carburant y suffise encore à annuler la
       dérive et à freiner la chute — sur le **pire** terrain (chute de
@@ -247,11 +285,21 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       difficulté 2,4 : 10 % d'abscisses posables en secteur accidenté contre
       89 % en secteur doux, et `terrain.test.ts` borne désormais ces deux
       fractions.
-- [ ] **Seuils de zoom et hystérésis** (40 / 60 et 16 / 24 m) : assez larges pour
-      ne pas clignoter, assez serrés pour que la vue rapprochée arrive à temps,
-      et **bornés par la demi-hauteur de vue du zoom visé** (45 m au zoom 2,
-      22,5 m au zoom 4) pour que le sol ne sorte pas de l'écran au moment du
-      saut. Réglés en T17.
+- [ ] **Seuils de zoom et hystérésis** : assez larges pour ne pas clignoter,
+      assez serrés pour que la vue rapprochée arrive à temps, et **bornés par la
+      demi-hauteur de vue du zoom visé** (45 m au zoom 2, 22,5 m au zoom 4),
+      **côté entrée et côté retour**, pour que le sol ne sorte pas de l'écran ni
+      au moment du saut ni pendant toute la bande d'hystérésis qui suit.
+      État après T10 : les valeurs retenues sont
+      `SEUILS_ZOOM = { vers2: 40, retour1: 44, vers4: 16, retour2: 22 }` — les
+      valeurs de départ (60 / 80 et 25 / 35) laissaient le seuil de retour
+      au-dessus de la borne de visibilité et sortaient le sol de l'écran en
+      remontant ; corrigé avant implémentation. `zoomSuivant` compare en
+      **strict** (pile au seuil, le cran courant est conservé) et n'avance que
+      d'**un cran par appel** (1 → 12 m rend 2, pas 4 ; le second cran arrive à
+      l'image suivante). `reglages.test.ts` (T17) couvre déjà les quatre bornes
+      dans son plan de tests. Reste ouvert : la validation **par le jeu**
+      (ressenti manette), qui attend T17.
 
 ## Vérification
 

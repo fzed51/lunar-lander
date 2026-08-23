@@ -1,7 +1,7 @@
 ---
 id: T11
 titre: Tableau de bord chiffré avec seuils colorés
-fichiers: packages/game/src/render/hud.ts, packages/game/src/render/hud.test.ts, packages/game/src/screens/game.ts
+fichiers: packages/game/src/render/hud.ts, packages/game/src/render/hud.test.ts, packages/game/src/screens/game.ts, packages/game/src/state.ts
 sensible: false
 ---
 
@@ -27,7 +27,19 @@ d'atterrissage.
 - `constants.ts` : `SEUIL_VY`, `SEUIL_VX`, `SEUIL_ASSIETTE`, `CRANS_MAX`,
   `MONDE` (T6 à T9).
 - `state.ts` : `Globals` avec `vies`, `tempsDeVol`, `manchesReussies`, `ecarts`,
-  `terrain`, `statut` (T9).
+  `terrain`, `statut` (T9). **N'a pas** de dotation de carburant : `Lander` ne
+  porte que `carburant` (le reste, pas la jauge pleine), et `difficulty.ts`
+  (`carburantInitial`) recalcule cette dotation depuis la difficulté mais ne la
+  stocke nulle part. Or la dotation dépend de la difficulté de la manche
+  (`carburantInitial(difficulteDe(niveauDepart, manchesReussies))`,
+  `= 140 - 18 * difficulté`, plancher 60), donc de 60 à 140 selon le niveau et
+  la progression — jamais `CARBURANT_BASE = 140` fixe. C'est **cette tâche** qui
+  ajoute à `Globals` le champ `readonly carburantInitial: number`, posé par
+  `nouvellePartie` et `nouvelleManche` (`state.ts`, T9) au moment où la
+  difficulté de la manche est connue. Le poser à l'affichage plutôt qu'à la
+  création serait faux dès qu'une manche change de difficulté en cours de
+  bandeau de posé (`manchesReussies` incrémenté avant l'affichage du bandeau) :
+  le dénominateur bougerait sous le pourcentage affiché.
 - L'écran de jeu de T10 appelle déjà le HUD en dernier dans `rend()`.
 
 ## À faire
@@ -46,10 +58,16 @@ d'atterrissage.
    les clous, `flammeChaude` entre le seuil et 1,5 fois le seuil, `alerte`
    au-delà. Trois paliers, pour que le joueur voie venir.
 4. `dessineHud(r, etat)` dispose, en 320 × 180 :
-   - **coin haut gauche** : altitude, vitesse verticale, vitesse horizontale,
-     chacune avec sa couleur de seuil. L'**altitude** est la hauteur au-dessus du
-     sol **sous le LEM** — `surfaceEn(hf, lem.position.x) - lem.position.y` — et
-     non une hauteur de monde : c'est cette valeur-là qui décide du contact ;
+   - **coin haut gauche** : altitude, vitesse verticale, vitesse horizontale.
+     Seules les **deux vitesses** portent une couleur de seuil ; l'**altitude**
+     s'affiche en `blanc` — `constants.ts` n'a pas de seuil d'altitude, et
+     `couleurSeuil(valeur, seuil)` en exige un, et aucune couleur d'alerte n'a
+     de sens sur une altitude seule. L'altitude est la hauteur au-dessus du sol
+     **sous le LEM** — `surfaceEn(hf, lem.position.x) - lem.position.y` — et non
+     une hauteur de monde : c'est cette valeur-là qui décide du contact.
+     **L'assiette n'est pas affichée** au HUD malgré `SEUIL_ASSIETTE` cité dans
+     « Ce qui existe » : le compte des neuf indicateurs de « Fini quand »
+     (3 + 4 + 2 jauges, les vies étant des silhouettes) ne tient que sans elle ;
    - **coin haut droit** : distance à la cible, temps de vol, numéro de manche,
      difficulté à deux décimales. La **distance à la cible** est le même écart
      que celui qui fera le score : l'écart **horizontal**
@@ -57,14 +75,26 @@ d'atterrissage.
      euclidienne. Un HUD qui affiche 12 m et un verdict qui compte 13 points
      ferait passer la règle du score pour un bug ;
    - **coin bas gauche** : jauge de carburant horizontale (cadre `grisPale`,
-     remplissage `flammeClaire`, `alerte` sous 20 %) plus le pourcentage ;
+     remplissage `flammeClaire`, `alerte` sous 20 %) plus le pourcentage. Le
+     `max` de `formateCarburant(u, max)` est `globals.carburantInitial` — **pas**
+     `CARBURANT_BASE` — sans quoi un réservoir plein en difficile (96,8 u)
+     s'affiche à 69 % et l'alerte 20 % se déclenche à un niveau de réservoir qui
+     n'est pas celui réellement embarqué ;
    - **coin bas droit** : jauge de puissance à 5 barres verticales, barres
      allumées en `flammeClaire`, éteintes en `reliefMoyen` ;
    - **coin bas centre** : vies restantes, dessinées comme autant de petites
      silhouettes de LEM.
-5. Ajouter un bandeau de message central, en `alerte`, quand le statut n'est pas
-   `"vol"` : `POSE — ECART nnn M` ou `CRASH` suivi des causes du verdict, en
-   clair (`TROP VITE`, `TROP PENCHE`, `SOL ACCIDENTE`, `HORS LIMITES`).
+5. Ajouter un bandeau de message central quand le statut n'est pas `"vol"` :
+   `POSE - ECART nnnn M` ou `CRASH` suivi des causes du verdict, en clair
+   (`TROP VITE`, `TROP PENCHE`, `SOL ACCIDENTE`, `HORS LIMITES`). Le posé
+   s'affiche en `accent`, le crash en `alerte` — **pas** tout en `alerte` comme
+   envisagé : un « POSE » en rouge se lirait comme un échec, alors que `accent`
+   est déjà la couleur de la plateforme cible et du drapeau, donc de la
+   réussite. Le tiret est un tiret **court** (`-`, pas `—`) : la police bitmap
+   n'a pas de cadratin, `glyphesDe` le rendrait en `?`. L'écart est écrit sur
+   **quatre** chiffres comme les autres valeurs en mètres (`formateMetres`), pas
+   trois : un posé loin du drapeau peut dépasser 999 m, l'écart n'étant borné
+   que par la largeur du monde.
 
 ## Gardes et cas limites
 
@@ -80,6 +110,9 @@ d'atterrissage.
   avec le verdict de T8 qui ne la sanctionne pas.
 - **Carburant à 0** : jauge vide, pourcentage `0 %`, pas de `-0 %` ni de barre
   d'un pixel résiduelle.
+- **Le dénominateur de la jauge est `globals.carburantInitial`**, jamais
+  `CARBURANT_BASE` ni une valeur recalculée à l'affichage : la dotation dépend
+  de la difficulté de la manche, pas du niveau facile.
 - **Plus de 5 vies** (impossible aujourd'hui, mais l'affichage ne doit pas
   déborder) : au-delà, afficher `x N` plutôt que N silhouettes.
 - **Causes multiples** d'un crash : toutes affichées, séparées, tronquées
@@ -95,20 +128,29 @@ d'atterrissage.
 - `formateTemps(0)` vaut `0:00` ; `formateTemps(65)` vaut `1:05` ;
   `formateTemps(3599)` vaut `59:59`.
 - `formateCarburant(0, 140)` vaut `0 %` ; `formateCarburant(140, 140)` vaut
-  `100 %`.
+  `100 %` ; `formateCarburant(96.8, 96.8)` vaut `100 %` — le `max` est la
+  dotation réelle de la manche, pas `CARBURANT_BASE`.
+- `dessineHud` lit `globals.carburantInitial` comme `max` de la jauge, pas une
+  constante : test avec une manche en difficulté non nulle, réservoir plein,
+  jauge affichée pleine et `100 %`.
 - `couleurSeuil` : `accent` sous le seuil, `flammeChaude` à 1,2 fois le seuil,
   `alerte` à 2 fois, et `accent` pour une vitesse montante.
 - Largeur totale de chaque bloc de texte, calculée avec `mesureTexte`, tient dans
   320 pixels pour les valeurs extrêmes listées ci-dessus.
 - La distance affichée est **égale** à l'écart que rendrait `evalueContact` (T8)
   pour la même position : un test compare les deux sur trois positions.
+- Le bandeau de fin de manche écrit `POSE - ECART 0123 M` (tiret court, quatre
+  chiffres) sur un posé, et le pose en `accent` ; `CRASH` et ses causes en
+  `alerte` sur un crash. Un écart supérieur à 999 m ne perd pas de rang.
 - Aucune couleur littérale dans `hud.ts`.
 
 ## Fini quand
 
-- [ ] `yarn dev` affiche les neuf indicateurs, lisibles à 320 × 180.
-- [ ] Les vitesses changent de couleur avant de sortir des seuils, en trois
+- [ ] `yarn dev` affiche les neuf indicateurs, lisibles à 320 × 180. **Non
+      vérifié à l'œil dans cet environnement** (pas de navigateur) : reste à
+      cocher par un humain.
+- [x] Les vitesses changent de couleur avant de sortir des seuils, en trois
       paliers.
-- [ ] Les colonnes ne bougent pas quand les valeurs changent d'ordre de
+- [x] Les colonnes ne bougent pas quand les valeurs changent d'ordre de
       grandeur.
-- [ ] La commande de vérification du README du plan passe au vert.
+- [x] La commande de vérification du README du plan passe au vert.
