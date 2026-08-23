@@ -1,5 +1,8 @@
 /* Tokens de couleur : générés depuis src/design/palette.json, source unique. */
 @import "./design/palette.css";
+/* Style commun aux écrans en HTML (accueil, fin de partie, hall of fame). Chargé
+   ici, et jamais depuis un .ts : le typecheck refuse un import de CSS. */
+@import "./design/ui.css";
 
 :root {
   color-scheme: dark;

@@ -42,6 +42,19 @@ export class Renderer {
   }
 
   /**
+   * Rend la surface **transparente**, à la différence de {@link clear} qui la
+   * peint d'une couleur opaque.
+   *
+   * C'est ce qu'il faut quand une autre couche vit **derrière** le canvas : un
+   * `clear` opaque, ou simplement la dernière image laissée en place, masquerait
+   * tout ce qui est dessiné dessous. Un écran qui rend la main efface donc sa
+   * couche plutôt que de la repeindre.
+   */
+  efface(): void {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+  }
+
+  /**
    * Un pixel plein de `taille` pixels de côté. Quand on dessine du monde,
    * `taille` vaut le zoom entier de la caméra : un « pixel monde » couvre alors
    * exactement une cellule de la grille agrandie.

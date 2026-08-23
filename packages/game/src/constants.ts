@@ -10,6 +10,48 @@ export const PARTICLE_LIFE = 0.6;
 /** Vitesse d'éjection d'une particule (px/s), légèrement randomisée. */
 export const PARTICLE_SPEED = 40;
 
+/** Débris projetés par l'explosion d'un crash. */
+export const DEBRIS_CRASH = 40;
+
+/** Grains de poussière soulevés par les pieds du LEM à l'instant du posé. */
+export const POUSSIERE_POSAGE = 14;
+
+/**
+ * Débit de gaz de la tuyère, en particules par seconde **et par cran** : au cran
+ * 5 le panache vaut donc 30 particules par seconde.
+ *
+ * Le débit se compte au temps écoulé et non à l'image, sinon le panache
+ * dépendrait du framerate. Le reste fractionnaire d'une image est reporté à la
+ * suivante dans `Globals.gazAccu` : à 120 images par seconde, une troncature par
+ * image ne produirait plus aucun gaz du tout.
+ */
+export const GAZ_PAR_SECONDE_PAR_CRAN = 6;
+
+/**
+ * Facteur appliqué à `MOON_GRAVITY` pour la retombée des débris et de la
+ * poussière. À 1 ils retombent exactement comme le LEM ; le baisser rend la
+ * gerbe plus flottante, pour du gaz plus léger.
+ */
+export const PARTICULE_GRAVITE_FACTEUR = 1;
+
+/**
+ * Plafond de particules **vivantes** au-delà duquel on n'en crée plus. Sans lui,
+ * un moteur tenu au cran 5 pendant deux minutes ferait fondre le framerate.
+ *
+ * Le plafond ne compte que les particules dont `age < life` : c'est
+ * `regleParticules` qui retire les autres de `state.entities`, et sans elle le
+ * compte inclurait des particules mortes et invisibles — le plafond serait
+ * atteint en quelques secondes sans jamais se libérer.
+ */
+export const PARTICULES_MAX = 400;
+
+/**
+ * Distance (m) sous le centre du LEM, dans son **repère propre**, d'où sort le
+ * gaz. C'est la bouche de la tuyère, et c'est le même point que celui d'où part
+ * la flamme dessinée : le panache et la flamme ne doivent pas se décoller.
+ */
+export const GAZ_BOUCHE = 3;
+
 // --- Monde et terrain ---
 //
 // Convention de repère, celle du `Heightfield` du moteur : `y` croît **vers le
@@ -279,3 +321,107 @@ export const DEPART_Y = 120;
 
 /** Temps (s) passé sur le bandeau de posé ou de crash avant la manche suivante. */
 export const DELAI_ENCHAINEMENT = 2;
+
+// --- Rendu de l'écran de jeu ---
+//
+// Rien ici ne touche à la simulation : ce sont les réglages de la caméra, du
+// zoom et du champ d'étoiles.
+
+/**
+ * Les seules valeurs de zoom autorisées. Le zoom est **entier** et saute par
+ * crans : une interpolation continue placerait les bords des formes entre deux
+ * colonnes de la grille et antialiaserait tout le rendu pendant la descente.
+ */
+export const ZOOMS = [1, 2, 4] as const;
+
+/**
+ * Altitudes de bascule du zoom (m au-dessus du sol), avec **hystérésis** : on
+ * resserre à `vers2` / `vers4` et on relâche seulement à `retour1` / `retour2`.
+ * Sans cet écart, un LEM qui flotte pile au seuil ferait clignoter le zoom d'une
+ * image à l'autre.
+ *
+ * **Les quatre seuils sont bornés par la demi-hauteur de vue du zoom visé**, pas
+ * seulement les deux d'entrée. La caméra est centrée sur le LEM et la vue fait
+ * `PIXEL.height` = 180 px : on voit 90 m sous le LEM au zoom 1, 45 m au zoom 2 et
+ * 22,5 m au zoom 4. D'où `vers2` et `retour1` sous `PIXEL.height / 4` = 45, et
+ * `vers4` et `retour2` sous `PIXEL.height / 8` = 22,5. C'est le seuil de
+ * **retour** qui décide jusqu'à quelle altitude on **reste** au zoom serré, donc
+ * jusqu'à quelle altitude le sol doit rester dans la vue de ce zoom : avec un
+ * retour au-delà de la borne, le joueur perdait le sol de vue en remontant,
+ * exactement ce que ces valeurs sont censées éviter.
+ */
+export const SEUILS_ZOOM = {
+  vers2: 40,
+  retour1: 44,
+  vers4: 16,
+  retour2: 22,
+} as const;
+
+/**
+ * Réactivité de la caméra (1/s), l'inverse de son temps de rattrapage : 6
+ * rattrape environ 63 % de l'écart en 1/6 s. Passée telle quelle à `suit`, qui
+ * lisse en exponentielle et ne dépasse donc jamais sa cible.
+ */
+export const CAMERA_REACTIVITE = 6;
+
+/**
+ * Décalage **vers le bas** (px d'écran au zoom 1) de la cible suivie par la
+ * caméra par rapport au centre du LEM : la caméra suit
+ * `(lem.x, lem.y + BIAIS_CAMERA_Y / zoom)`.
+ *
+ * Il élargit la bande de sol visible sous le LEM. Sans lui, un LEM centré ne
+ * voit que `PIXEL.height / 2` = 90 m sous lui au zoom 1 — or il est largué à
+ * `DEPART_Y` = 120 au-dessus d'une surface qui vit dans
+ * `[TERRAIN_Y_MIN, TERRAIN_Y_MAX]`, donc à 150 à 280 m d'altitude : chaque manche
+ * démarrerait sur un écran de ciel vide pendant les ~13 s de chute libre qui
+ * précèdent. Avec le biais, la bande visible sous le LEM passe à 150 m au zoom 1.
+ */
+export const BIAIS_CAMERA_Y = 60;
+
+/** Étoiles du champ d'une manche, tirées une fois et jamais retirées ensuite. */
+export const ETOILES_NOMBRE = 90;
+
+/**
+ * Part du déplacement de la caméra que le champ d'étoiles suit : à 0,25, les
+ * étoiles glissent quatre fois moins vite que le relief, ce qui les fait
+ * paraître lointaines.
+ */
+export const ETOILES_PARALLAXE = 0.25;
+
+// --- Fond animé des écrans en DOM ---
+//
+// Le décor de l'accueil, dessiné sur la couche `#fond`, derrière l'écran de jeu
+// et derrière le HTML. Rien ici ne touche à la simulation, et tout se compte en
+// **pixels du canvas 320 × 180** : ce fond n'a pas de caméra, donc pas de zoom.
+
+/**
+ * La Terre dans le ciel de l'accueil : rayon et centre, en pixels du canvas.
+ * Posée en haut à droite, là où ni le titre ni la sélection de niveau ne
+ * viennent la couvrir.
+ */
+export const TERRE = { rayon: 26, centre: { x: 250, y: 44 } } as const;
+
+/**
+ * Dérive des continents, en **tours par seconde** : une rotation complète en
+ * 200 s. C'est une dérive lente, presque à la limite du perceptible, et c'est
+ * voulu — le fond d'un menu ne doit pas tourner comme une enseigne.
+ *
+ * Règle à garder en tête pour tout réglage futur : le pas de temps d'un test qui
+ * compare deux instants ne doit **jamais** être un multiple de
+ * `1 / TERRE_ROTATION`. À 0,05 tour/s, la période vaudrait exactement 20 s, or
+ * `background.test.ts` compare la position des continents à `t` et à `t + 20` :
+ * l'écart d'angle vaudrait un tour entier, les deux instants rendraient les mêmes
+ * pixels et le test échouerait par construction.
+ */
+export const TERRE_ROTATION = 0.005;
+
+/**
+ * Durée (s) du cycle complet des quatre images de l'ondulation du drapeau
+ * **du fond** : une image toutes les 0,15 s.
+ *
+ * Le drapeau de la plateforme cible, lui, garde sa propre cadence dans
+ * `render/draw.ts` (8 images par seconde) : c'est un objet du monde vu à travers
+ * la caméra, pas un élément de décor, et sa cadence est fixée par les tests de
+ * T10. Les deux ne partagent que la table d'ondulation.
+ */
+export const DRAPEAU_PERIODE = 0.6;
