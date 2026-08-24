@@ -1,9 +1,11 @@
 import { GameLoop } from "@lem/engine";
 import { creeSurface } from "./render/surface.ts";
 import { creeEcranJeu } from "./screens/game.ts";
+import { creeEcranFin } from "./screens/gameover.ts";
+import { creeEcranHof } from "./screens/hof.ts";
 import { creeEcranAccueil } from "./screens/home.ts";
 import { GestionnaireEcrans } from "./screens/manager.ts";
-import type { Ecran, NomEcran, Transition } from "./screens/types.ts";
+import { stockageDisponible } from "./storage.ts";
 
 /**
  * Récupère un élément obligatoire de la page. Le type de retour n'est pas
@@ -24,74 +26,16 @@ const ui = exige<HTMLElement>("#ui");
 const fond = creeSurface(exige<HTMLCanvasElement>("#fond"));
 const surface = creeSurface(exige<HTMLCanvasElement>("#game"));
 const gestionnaire = new GestionnaireEcrans();
+// L'unique magasin du jeu, choisi **une seule fois** ici puis distribué aux
+// écrans qui en ont besoin. Deux appels séparés dans deux écrans se replieraient
+// chacun sur leur propre mémoire en navigation privée, et le trigramme validé
+// n'apparaîtrait jamais au classement.
+const stockage = stockageDisponible();
 
-/**
- * Écran bouchon en DOM : affiche son nom dans `#ui`, et demande l'écran suivant
- * au **front montant** de `confirm`. Les vrais écrans de fin de partie et de
- * hall of fame prendront cette place.
- *
- * `suivante` est une fonction et non une valeur : la graine d'une partie se tire
- * au moment de la transition, pas au chargement de la page.
- */
-function bouchonDom(nom: NomEcran, suivante: () => Transition): Ecran {
-  let noeud: HTMLElement | null = null;
-  let demande: Transition | null = null;
-
-  return {
-    nom,
-    entre(): void {
-      const bloc = document.createElement("div");
-      bloc.className = "bouchon";
-      bloc.append(titreBouchon(nom), invitationBouchon());
-      ui.append(bloc);
-      noeud = bloc;
-    },
-    sort(): void {
-      noeud?.remove();
-      noeud = null;
-      // Une demande jamais appliquée ne doit pas ressortir au passage suivant.
-      demande = null;
-    },
-    tick(_dt, input): void {
-      if (demande === null && input.justPressed("confirm")) {
-        demande = suivante();
-      }
-    },
-    rend(): void {
-      // Un écran en DOM n'occupe pas la couche de jeu : on l'**efface**, on ne
-      // la repeint pas. Un aplat opaque masquerait le fond animé de `#fond`, qui
-      // vit sous celle-ci — c'est précisément ce que l'accueil dessine.
-      surface.renderer.efface();
-    },
-    prendTransition(): Transition | null {
-      const t = demande;
-      demande = null;
-      return t;
-    },
-  };
-}
-
-/** Titre d'un bouchon en DOM. Taille 32 px du design system. */
-function titreBouchon(nom: NomEcran): HTMLElement {
-  const titre = document.createElement("p");
-  titre.className = "bouchon-titre";
-  titre.textContent = nom.toUpperCase();
-  return titre;
-}
-
-/** Invitation d'un bouchon en DOM. Taille 16 px du design system. */
-function invitationBouchon(): HTMLElement {
-  const invite = document.createElement("p");
-  invite.className = "bouchon-invite";
-  invite.textContent = "ENTREE : ECRAN SUIVANT";
-  return invite;
-}
-
-// L'accueil, le jeu, et deux bouchons en DOM : accueil → jeu → fin → hof →
-// accueil. Les deux vrais écrans reçoivent leur surface de dessin, et l'écran de
-// jeu l'unique source de commandes de l'image ; ils ne créent ni l'une ni
-// l'autre. `fin` et `hof` resteront des bouchons jusqu'à ce que leurs tâches les
-// remplacent.
+// Les quatre écrans du jeu : accueil → jeu → fin → hof → accueil. Chacun reçoit
+// ce qu'il ne doit pas fabriquer lui-même — surface de dessin, source de
+// commandes de l'image, magasin du classement. L'accueil et le hall of fame
+// peignent la même couche de fond, et lisent le même magasin que l'écran de fin.
 gestionnaire
   .enregistre(creeEcranAccueil({ renderer: fond.renderer }))
   .enregistre(
@@ -100,8 +44,8 @@ gestionnaire
       input: gestionnaire.sourcePartagee(),
     }),
   )
-  .enregistre(bouchonDom("fin", () => ({ nom: "hof" })))
-  .enregistre(bouchonDom("hof", () => ({ nom: "accueil" })));
+  .enregistre(creeEcranFin({ hote: ui, stockage }))
+  .enregistre(creeEcranHof({ hote: ui, renderer: fond.renderer, stockage }));
 
 gestionnaire.active({ nom: "accueil" });
 

@@ -14,6 +14,8 @@ Aucune couleur, aucune taille de texte ne se décide ailleurs.
 | `packages/game/src/design/palette.ts` | Expose `PALETTE` (figée) et le type `CouleurLem`. N'écrit aucune valeur. |
 | `packages/game/src/design/palette.css` | **Fichier généré**, commité. Une variable `--lem-<clé-en-kebab-case>` par couleur. Ne pas éditer à la main. |
 | `packages/game/src/design/font.ts` | Police bitmap 5 × 7 : `GLYPHES`, `mesureTexte`, `dessineTexte`. |
+| `packages/game/src/design/ui.css` | Style commun des écrans en DOM : blocs, choix de niveau, trigramme, tableau du hall of fame. Aucune couleur en dur, que des `var(--lem-…)`. |
+| `packages/game/src/style.css` | Mise en page des trois couches (`#fond`, `#game`, `#ui`) et import des deux CSS ci-dessus. Un `import "./design/ui.css"` depuis un `.ts` échouerait au typecheck : le chargement se fait donc ici. |
 | `packages/game/scripts/gen-palette-css.mjs` | Générateur du CSS. `yarn workspace @lem/game gen:palette`. |
 
 Le JSON est la source, et non un module TypeScript, pour que le générateur n'ait
@@ -102,8 +104,8 @@ const largeur = mesureTexte("CARBURANT", { echelle: 2 }); // 106
 
 ## Texte au DOM
 
-Les écrans en DOM (s'il en reste) partagent la palette par ses variables CSS et
-la même sobriété typographique.
+Trois écrans sont en DOM — accueil, fin de partie, hall of fame. Ils partagent la
+palette par ses variables CSS et la même sobriété typographique.
 
 - **Famille** : `font-family: ui-monospace, "Courier New", monospace;` — une
   police système, jamais un fichier de police téléchargé.
@@ -120,6 +122,69 @@ la même sobriété typographique.
 
 `style.css` importe `design/palette.css` et n'écrit aucune couleur en dur :
 toutes passent par `var(--lem-…)`.
+
+Les blocs disponibles dans `design/ui.css`, tous construits sur ces quatre
+tailles et sur une gouttière unique de 8 px :
+
+| Classe | Taille | Emploi |
+| --- | --- | --- |
+| `.ecran` | — | la colonne centrée d'un écran, gouttière 8 px, jamais hors du cadre |
+| `.ecran-titre` | 32 px | le titre d'un écran, interlettrage 4 px |
+| `.ecran-invite` | 16 px | l'action principale, seule ligne en blanc du bas d'écran |
+| `.ecran-ligne` | 16 px | une ligne de récapitulatif |
+| `.ecran-entree` | 8 px | un accès secondaire, en `accent` |
+| `.ecran-aide` | 8 px | le rappel des touches, le plus discret |
+| `.choix-option` | 16 px | une option exclusive, cadre d'un pixel ; la retenue s'inverse en `accent` |
+| `.trigramme-lettre` | 32 px | une des trois lettres de la saisie arcade, curseur de 2 px dessous |
+| `.hof-ligne` | 8 px | une ligne du classement, sept colonnes de largeur fixe en caractères |
+
+## Harmonie canvas / DOM : ce qui a été décidé
+
+Le jeu mélange deux systèmes d'affichage sans police de fichier : une police
+bitmap dessinée par le code au canvas, une police monospace du système au DOM.
+Elles ne peuvent pas rendre le même dessin ; l'harmonie ne vient donc pas de la
+forme des lettres, mais de quatre décisions.
+
+1. **Un écran appartient à un seul système.** Le jeu est tout au canvas ; les
+   trois autres écrans sont tout en DOM, et le canvas qui vit dessous (`#fond`)
+   ne porte **aucun texte**. Les deux polices ne se retrouvent jamais côte à côte
+   dans la même image, ce qui retire toute comparaison directe.
+2. **La palette est la même des deux côtés**, générée depuis `palette.json` :
+   c'est elle qui fait reconnaître le même jeu d'un écran à l'autre.
+3. **Les mêmes interdits partout** : majuscules, aplats, cadres d'un pixel, aucune
+   ombre, aucun arrondi, aucun dégradé, aucune transition. Un bouton arrondi ou un
+   fondu ferait tache bien avant qu'une différence de police ne se remarque.
+4. **La grille de 8 px** sert des deux côtés : gouttières, marges et tailles de
+   texte du DOM en sont des multiples, comme le pas de 6 px d'un glyphe au canvas.
+
+**Ce qui reste à contrôler à l'œil.** Les quatre tailles du DOM sont en pixels
+CSS **fixes**, alors que la boîte `#scene` grandit avec le facteur entier
+d'agrandissement : à facteur 4, la boîte fait 1280 × 720 mais le titre mesure
+toujours 32 px. Les mises en page sont donc dimensionnées pour le **pire cas**,
+le facteur 1 — tout écran en DOM tient dans 320 × 180 px CSS, y compris les neuf
+lignes du hall of fame —, et rien ne déborde jamais. En contrepartie, les écrans
+en DOM paraissent d'autant plus sobres que la fenêtre est grande. C'est le seul
+point du design system qu'aucun test ne peut trancher : il demande un regard.
+
+Si ce regard le refuse, le levier est unique et tient en une ligne : dériver les
+quatre tailles de `--lem-echelle`, qui porte déjà la taille d'un pixel de jeu en
+pixels CSS (`font-size: calc(8px * var(--lem-echelle))` vaut exactement huit
+pixels de jeu). Les tailles restent alors des multiples de la grille, et aucune
+autre règle ne bouge.
+
+## Lisibilité de la police 5 × 7
+
+- Le HUD reste à l'**échelle 1** : à l'échelle 2, six indicateurs chiffrés
+  mangeraient le tiers de l'écran de jeu. Sa lisibilité passe par la **couleur** —
+  `alerte` hors seuil, `accent` dans les clous — et non par la taille.
+- L'échelle 2 est réservée à ce qui doit se lire d'un coup d'œil et qui n'a pas de
+  voisin : le **verdict** de fin de manche et le titre du **voile de pause**.
+- Un glyphe de 5 × 7 pixels de jeu mesure 20 × 28 pixels d'écran au facteur 4,
+  10 × 14 au facteur 2. Au facteur 1 — une fenêtre de moins de 640 × 360 — le
+  texte tombe à sa taille brute et devient difficile ; c'est le cas dégradé
+  assumé, pas le cas normal.
+- Les seize couleurs de la palette ont toutes trouvé un emploi dans les écrans
+  livrés. Aucune dix-septième n'a été nécessaire.
 
 ## Aucun asset externe
 

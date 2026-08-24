@@ -243,8 +243,9 @@ export const ASSIETTE_MAX = Math.PI / 2;
 //
 // Les trois seuils de vol du §4.1 du cahier des charges, plus `SEUIL_PLATITUDE`
 // déjà défini plus haut avec le terrain : quatre conditions à réunir au contact.
-// Tous sont des **ordres de grandeur réglés en T17**, pas des valeurs arrêtées :
-// c'est l'équilibrage qui tranchera, et il ne touchera qu'à ces lignes.
+// Les valeurs ci-dessous sont celles **arrêtées à l'équilibrage** et reportées
+// telles quelles au §4.1 du cahier des charges : les changer, c'est changer le
+// cahier des charges avec, sans quoi la documentation ment.
 //
 // Les seuils sont **inclusifs** : le contact pile au seuil est un posé. Ils sont
 // comparés à des grandeurs que le joueur lit sur le HUD, et refuser une valeur
@@ -287,9 +288,12 @@ export const NIVEAUX = { facile: 0, moyen: 1, difficile: 2 } as const;
 export const PALIER_DIFFICULTE = 0.08;
 
 /**
- * Plafond de difficulté, **volontairement gagnable**. Il est vérifié en T17 sur
- * le **pire cas** de terrain — plateforme à `TERRAIN_Y_MAX`, donc une chute de
- * `TERRAIN_Y_MAX - DEPART_Y` = 280 m — et non sur le meilleur.
+ * Plafond de difficulté, **volontairement gagnable**. Il est vérifié sur le
+ * **pire cas** de terrain — plateforme à `TERRAIN_Y_MAX`, donc une chute de
+ * `TERRAIN_Y_MAX - DEPART_Y` = 280 m — et non sur le meilleur, par l'invariant
+ * de `reglages.test.ts` : réservoir de 96,8 u contre ≈ 82,3 u de besoin, soit
+ * 17,6 % de marge. Depuis le niveau facile, l'atteindre demande
+ * `2,4 / 0,08 = 30` manches réussies.
  */
 export const DIFFICULTE_MAX = 2.4;
 
@@ -373,8 +377,17 @@ export const CAMERA_REACTIVITE = 6;
  * voit que `PIXEL.height / 2` = 90 m sous lui au zoom 1 — or il est largué à
  * `DEPART_Y` = 120 au-dessus d'une surface qui vit dans
  * `[TERRAIN_Y_MIN, TERRAIN_Y_MAX]`, donc à 150 à 280 m d'altitude : chaque manche
- * démarrerait sur un écran de ciel vide pendant les ~13 s de chute libre qui
+ * démarrerait sur un écran de ciel vide pendant les ~12 s de chute libre qui
  * précèdent. Avec le biais, la bande visible sous le LEM passe à 150 m au zoom 1.
+ *
+ * La fenêtre aveugle est **réduite, pas annulée**, et c'est l'arbitrage retenu à
+ * l'équilibrage. Mesuré sur 800 terrains (difficultés 0, 1, 2 et 2,4), la cible
+ * tombe entre `y` 307 et 352 : le relief entre dans le cadre après 6,8 à 10,0 s
+ * de chute libre, 8,6 s en médiane. Monter le biais jusqu'à couvrir le pire cas
+ * (≈ 190 px) déborderait la vue au zoom 2 — 95 m de décalage pour une demi-vue de
+ * 45 m — et collerait le LEM au bord haut pendant toute l'approche. C'est
+ * `dessineIndicateurCible` qui tient le rôle pendant l'attente : la cible étant
+ * sous le bord bas, la flèche est affichée dès la première image.
  */
 export const BIAIS_CAMERA_Y = 60;
 

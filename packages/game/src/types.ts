@@ -3,8 +3,8 @@ import type { Particle } from "./entities/Particle.ts";
 
 /**
  * Commandes du jeu. Tout se joue aux quatre flèches ; `confirm` et `back`
- * servent la navigation entre écrans, et `hof` ouvre le hall of fame depuis
- * l'accueil.
+ * servent la navigation entre écrans, `hof` ouvre le hall of fame depuis
+ * l'accueil et `raz` en demande la remise à zéro.
  */
 export type Command =
   | "tilt-left"
@@ -13,7 +13,8 @@ export type Command =
   | "throttle-down"
   | "confirm"
   | "back"
-  | "hof";
+  | "hof"
+  | "raz";
 
 /** Union discriminée des entités du jeu. */
 export type LemEntity = Lander | Particle;

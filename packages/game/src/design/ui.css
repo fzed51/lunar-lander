@@ -59,6 +59,13 @@
   color: var(--lem-gris-clair);
 }
 
+/* 16 px : une ligne du récapitulatif de fin de partie. Plus discrète que
+   l'invite, qui reste la seule ligne en blanc du bas de l'écran. */
+.ecran-ligne {
+  font-size: 16px;
+  color: var(--lem-gris-pale);
+}
+
 /* Une rangée d'options exclusives. `flex-wrap` est là pour la fenêtre étroite :
    les options passent à la ligne plutôt que de déborder du cadre. */
 .choix {
@@ -87,4 +94,111 @@
   border-color: var(--lem-accent);
   background: var(--lem-accent);
   color: var(--lem-espace);
+}
+
+/* Les trois lettres du trigramme, à la manière d'une borne d'arcade. */
+.trigramme {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Une case : la lettre, et le curseur juste dessous. */
+.trigramme-case {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 32 px : la taille de titre du design system. C'est le contenu principal de
+   l'écran quand la partie est classée. */
+.trigramme-lettre {
+  font-size: 32px;
+  line-height: 1;
+  color: var(--lem-blanc);
+}
+
+/* Le curseur : un trait de 2 px sous la lettre en cours d'édition. Il est
+   toujours présent, transparent quand la case n'est pas active — une case qui
+   apparaît et disparaît ferait sauter la ligne des trois lettres. */
+.trigramme-curseur {
+  align-self: stretch;
+  height: 2px;
+  background: transparent;
+}
+
+.trigramme-case.est-actif .trigramme-curseur {
+  background: var(--lem-accent);
+}
+
+/* --- Hall of fame --- */
+
+/* 16 px, et pas la taille de titre : douze caractères à 32 px et 4 px
+   d'interlettrage frôlent les 320 px de la scène, et les dix lignes du tableau
+   ont besoin de la hauteur ainsi gagnée. */
+.hof-titre {
+  font-size: 16px;
+  letter-spacing: 4px;
+  color: var(--lem-blanc);
+}
+
+/* Le tableau : une pile de lignes, sans espacement propre. La hauteur de ligne
+   suffit à les séparer, et l'écran entier — titre, en-tête, neuf lignes et deux
+   lignes de pied — doit tenir dans les 180 px du cadre. */
+.hof-table {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Une ligne : sept colonnes de largeur FIXE, la même grille pour l'en-tête et
+   pour les lignes de données — c'est ce qui les aligne, sans que l'une ait à
+   connaître l'autre. Les largeurs sont comptées en caractères, `--hof-car`
+   valant la place d'un caractère de 8 px, interlettrage compris. Des colonnes
+   dimensionnées sur leur contenu sauteraient d'une ligne à l'autre selon les
+   valeurs, et le tableau deviendrait illisible. */
+.hof-ligne {
+  --hof-car: 6px;
+
+  display: grid;
+  grid-template-columns:
+    calc(3 * var(--hof-car)) calc(3 * var(--hof-car)) calc(6 * var(--hof-car))
+    calc(4 * var(--hof-car)) calc(3 * var(--hof-car)) calc(9 * var(--hof-car))
+    calc(10 * var(--hof-car));
+  gap: 8px;
+  font-size: 8px;
+  line-height: 10px;
+  color: var(--lem-gris-pale);
+}
+
+/* Une cellule ne déborde pas de sa colonne : une valeur trop longue est rognée
+   plutôt que de pousser les colonnes suivantes. */
+.hof-col {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Les nombres alignés à droite, unités sous unités. */
+.hof-col-nombre {
+  text-align: right;
+}
+
+/* L'en-tête nomme les colonnes sans se disputer la lecture avec elles. */
+.hof-entete {
+  color: var(--lem-relief-clair);
+}
+
+/* La partie qui vient d'être classée : c'est elle qu'on est venu voir en
+   arrivant de l'écran de fin. */
+.hof-ligne.est-en-avant {
+  color: var(--lem-accent);
+}
+
+/* La remise à zéro attend son second appui. Rouge et non accent : c'est le seul
+   geste de l'interface qui détruise des données. */
+.hof-confirme {
+  color: var(--lem-alerte);
 }

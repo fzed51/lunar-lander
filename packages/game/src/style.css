@@ -88,24 +88,3 @@ body {
   letter-spacing: 1px;
   color: var(--lem-blanc);
 }
-
-.bouchon {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.bouchon-titre,
-.bouchon-invite {
-  margin: 0;
-}
-
-.bouchon-titre {
-  font-size: 32px;
-}
-
-.bouchon-invite {
-  font-size: 16px;
-  color: var(--lem-gris-pale);
-}
