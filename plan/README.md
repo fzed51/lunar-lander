@@ -134,6 +134,9 @@ de **16 couleurs** figée par un design system commun au canvas et au DOM.
   adapté `screens/manager.test.ts` de façon **strictement mécanique** — une
   fabrique `versFin()` pour la charge utile de la variante `fin`, un type de
   globals local — sans toucher une assertion : ses 15 tests passent inchangés.
+  **Après T10–T13, 121 dans le moteur et 439 dans le jeu. Après T14–T17
+  (run D, dernier lot du plan), 121 dans le moteur (inchangé) et 568 dans le
+  jeu**, aucun test antérieur supprimé, désactivé ni affaibli.
 - **`packages/game` n'a pas `@types/node`** : un test ne peut donc pas lire le
   source d'un fichier (`import { readFileSync } from "node:fs"` échoue au
   `typecheck`), et ajouter la dépendance sortirait du périmètre. Les gardes du
@@ -216,6 +219,40 @@ La logique du hall of fame (T14) passe **avant** les deux écrans qui l'utilisen
 (T15, T16). C'est volontaire : faire les écrans d'abord obligerait à inventer une
 injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
 
+**T14 à T17 sont faites (run D, ce dépôt clôt le plan).** Le hall of fame
+(`hof.ts`, `storage.ts`) : cent entrées maximum, tri par temps de vol arrondi à
+la seconde puis par points, troncature appliquée **à la lecture**
+(`lisHof`) et pas seulement à l'écriture, `stockageDisponible()` mémorise son
+repli mémoire pour que les deux écrans partagent la même instance. L'écran de
+fin de partie (`screens/gameover.ts`, `trigramme.ts`) affiche le bilan sur
+**deux lignes** (et non quatre, pour tenir sous les 180 px de la scène au
+facteur d'agrandissement 1) et un titre `FIN DE PARTIE` / `ABANDON` ; la saisie
+du trigramme y est bornée aux trois lettres `A`–`Z`. L'écran du hall of fame
+(`screens/hof.ts`) montre neuf lignes défilantes sur le même fond animé que
+l'accueil, avec remise à zéro à double appui sur `R` (au front montant,
+`justPressed`, jamais `isActive`). `main.ts` a été rebranché : les bouchons DOM
+`"fin"` et `"hof"` ont disparu, avec `bouchonDom` / `titreBouchon` /
+`invitationBouchon` et les règles CSS `.bouchon*` qui ne stylaient plus rien.
+La liste écrite par la validation du trigramme voyage dans la transition
+(`Transition["hof"].params.liste`) plutôt que d'être relue par l'écran suivant
+— une divergence entre écriture et relecture (quota, navigation privée)
+pourrait sinon faire disparaître, sans le moindre message, la partie que le
+joueur vient de valider. L'équilibrage (T17) n'a changé aucune valeur
+numérique de `constants.ts` : `CARBURANT_PENTE = 18` était déjà en place
+depuis le run B, et le calcul (`reglages.test.ts`, sept invariants) le
+confirme à 17,6 % de marge au plafond de difficulté. `docs/cahier-des-charges.md`
+et `docs/design-system.md` portent maintenant les valeurs retenues.
+121 tests dans le moteur (inchangé), **568 dans le jeu**.
+
+Écarts et signatures réelles du run D à connaître pour toute relecture : voir
+les fiches `task-14-hof-logique.md` à `task-17-equilibrage-doc.md`, qui portent
+chacune un encart « Rapport (run D) » ou « Signature réelle » aux endroits où
+le code a divergé du texte d'origine — notamment `CandidatHof` (type structural
+de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
+`etiquetteNiveau` exportée de `gameover.ts` et réutilisée par `hof.ts`,
+`GRAINE_CIEL` déplacée de `screens/home.ts` vers `render/background.ts`, et
+`OptionsEcranHof` qui porte un `Renderer` en plus de `hote` et `stockage`.
+
 ## Inconnues à lever
 
 - [x] **Lisibilité de la police bitmap 5 × 7** dans le HUD à 320 × 180. ~~Levée
@@ -241,6 +278,14 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       fait** (pas de navigateur dans cet environnement d'implémentation) :
       remplacé par un rendu ASCII hors écran du fond animé, jugé conforme.
       L'arbitrage définitif reste à faire par un humain via `yarn dev`.
+      État après T17 : la décision est **écrite** dans
+      `docs/design-system.md` (§ Harmonie canvas / DOM : ce qui a été décidé)
+      — un écran appartient à un seul système, même palette des deux côtés,
+      mêmes interdits (majuscules, aplats, cadres d'un pixel), grille de 8 px
+      commune — et les écrans de fin de partie et du hall of fame (T15, T16)
+      suivent la même règle que l'accueil. **Le contrôle à l'œil reste ouvert** :
+      toujours pas de navigateur dans cet environnement d'implémentation, sur
+      trois écrans DOM désormais au lieu d'un.
 - [ ] **Jouabilité des réglages chiffrés** (poussée max 4,0 m/s², consommation
       0,8 u/s par cran, réservoirs 140 / 122 / 104 u avec
       `CARBURANT_PENTE = 18`, dérive initiale 8 / 14 / 20 m/s). Posés pour être
@@ -257,7 +302,12 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       (pas de navigateur) : la jouabilité a été sondée uniquement par du calcul
       et des simulations chiffrées (voir les gardes de T10), jamais par une
       partie réellement jouée. L'inconnue reste entière, à lever en T17.
-- [ ] **Plafond de difficulté à 2,4** : l'arbitrage retenu veut qu'il reste
+      État après T17 : **toujours ouverte**. Aucune valeur n'a bougé (le calcul
+      valide l'existant, voir ci-dessous), et aucune partie n'a été jouée
+      manette en main dans cet environnement — remplacé par le calcul et par
+      une mesure sur 800 terrains générés. La validation par le jeu reste
+      entière, à faire par un humain avant la PR.
+- [x] **Plafond de difficulté à 2,4** : l'arbitrage retenu veut qu'il reste
       **franchissable**, donc que le carburant y suffise encore à annuler la
       dérive et à freiner la chute — sur le **pire** terrain (chute de
       `TERRAIN_Y_MAX - DEPART_Y = 280` m), pas sur le meilleur. Tranché dans le
@@ -270,6 +320,14 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       flottant. Le calcul de besoin (≈ 83 u) n'est **pas** encore vérifié par un
       test, et la vérification « par le jeu » attend l'écran. Inconnue toujours
       ouverte.
+      **Levée en T17** par le calcul : besoin réel au pire cas ≈ 82,3 u
+      (freinage ≈ 50,6 u + dérive à 45° ≈ 31,7 u), réservoir 96,8 u, soit
+      **17,6 % de marge**, tenu par un invariant de `reglages.test.ts` écrit
+      avec les constantes en toutes lettres (`CONSO_PAR_CRAN`, `CRANS_MAX`,
+      `POUSSEE_MAX`, `MOON_GRAVITY`), pas avec la lecture simplifiée `v / sin θ`
+      qui ne vaudrait que pour les valeurs du jour. Seule la vérification
+      « par le jeu » (ressenti manette) reste ouverte, fondue dans l'inconnue
+      « jouabilité des réglages » ci-dessus.
 - [ ] **Contraste de rugosité du terrain** (`RUGOSITE_DOUCE = 0,15` contre
       `RUGOSITE_ACCIDENTEE = 1,6`, plus la passe de pics et de canyons) : le
       relief doit vraiment offrir des secteurs infranchissables et des secteurs
@@ -285,7 +343,12 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       difficulté 2,4 : 10 % d'abscisses posables en secteur accidenté contre
       89 % en secteur doux, et `terrain.test.ts` borne désormais ces deux
       fractions.
-- [ ] **Seuils de zoom et hystérésis** : assez larges pour ne pas clignoter,
+      État après T17 : le contraste chiffré (10 % / 89 %) est reporté au §5.1
+      du cahier des charges, et `reglages.test.ts` ajoute l'invariant
+      « `RUGOSITE_ACCIDENTEE` vaut au moins cinq fois `RUGOSITE_DOUCE` ». Le
+      **réajustement à l'œil reste ouvert** : aucune partie jouée dans cet
+      environnement.
+- [x] **Seuils de zoom et hystérésis** : assez larges pour ne pas clignoter,
       assez serrés pour que la vue rapprochée arrive à temps, et **bornés par la
       demi-hauteur de vue du zoom visé** (45 m au zoom 2, 22,5 m au zoom 4),
       **côté entrée et côté retour**, pour que le sol ne sorte pas de l'écran ni
@@ -300,6 +363,25 @@ injection de dépendance qui ne servirait qu'à contourner l'ordre des tâches.
       l'image suivante). `reglages.test.ts` (T17) couvre déjà les quatre bornes
       dans son plan de tests. Reste ouvert : la validation **par le jeu**
       (ressenti manette), qui attend T17.
+      État après T17 : l'**ordre des quatre seuils** et le fait qu'ils
+      **tiennent tous les quatre** dans la demi-vue du zoom visé — entrée et
+      retour — sont désormais couverts par deux invariants de
+      `reglages.test.ts`. Le **ressenti manette reste ouvert**, fondu dans
+      l'inconnue « jouabilité des réglages » ci-dessus : aucune partie jouée
+      dans cet environnement d'implémentation.
+
+### Fenêtre aveugle du largage — inconnue nouvelle, levée par la mesure
+
+Non listée à l'ouverture du plan, apparue avec le calcul du run D :
+`TERRAIN_Y_MAX - DEPART_Y = 280` m dépasse largement ce que `BIAIS_CAMERA_Y`
+peut couvrir, donc chaque manche démarre par un temps de chute libre sans le
+moindre relief visible. Mesuré sur 800 terrains : **6,8 à 10,0 s, 8,6 s en
+médiane** — le pire cas théorique (12,7 s) n'arrive jamais, la cible ne tombant
+jamais à `TERRAIN_Y_MAX`. `BIAIS_CAMERA_Y` reste à 60 (le monter jusqu'à couvrir
+le pire cas déborderait la vue au zoom 2) ; c'est `dessineIndicateurCible`
+(T10) qui signale la cible pendant l'attente. Chiffré au §6.2 du cahier des
+charges. Le **ressenti** de cette attente, lui, n'a pas été éprouvé manette en
+main.
 
 ## Vérification
 

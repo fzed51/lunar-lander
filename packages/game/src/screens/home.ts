@@ -29,16 +29,10 @@
 
 import { createRng, type InputSnapshot, type Renderer } from "@lem/engine";
 import { NIVEAUX } from "../constants.ts";
-import { dessineFond } from "../render/background.ts";
+import { dessineFond, GRAINE_CIEL } from "../render/background.ts";
 import { genereEtoiles, type Etoile } from "../render/stars.ts";
 import type { Command } from "../types.ts";
 import type { Ecran, Transition } from "./types.ts";
-
-/**
- * Graine du ciel de l'accueil : fixe, pour que le fond soit exactement le même à
- * chaque ouverture. Le 20 juillet 1969, en chiffres.
- */
-const GRAINE_CIEL = 19690720;
 
 /**
  * Les trois niveaux, dans l'ordre d'affichage. Les difficultés de départ sont
@@ -126,9 +120,10 @@ function construitBloc(): Bloc {
 /** Crée l'écran d'accueil. Une seule instance suffit : elle est réactivée par nom. */
 export function creeEcranAccueil(options: OptionsEcranAccueil): Ecran {
   /**
-   * Ciel du fond : tiré **une fois**, sur une graine fixe. Ni le rendu ni les
-   * activations suivantes ne retirent quoi que ce soit — l'accueil a toujours le
-   * même ciel, et aucun tirage ne dépend du nombre d'images affichées.
+   * Ciel du fond : tiré **une fois**, sur la graine fixe du fond animé. Ni le
+   * rendu ni les activations suivantes ne retirent quoi que ce soit — l'accueil
+   * a toujours le même ciel, et aucun tirage ne dépend du nombre d'images
+   * affichées.
    */
   const etoiles: readonly Etoile[] = genereEtoiles(createRng(GRAINE_CIEL));
 

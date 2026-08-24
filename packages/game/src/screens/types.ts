@@ -1,4 +1,5 @@
 import type { InputSnapshot } from "@lem/engine";
+import type { EntreeHof } from "../hof.ts";
 import type { ResultatPartie } from "../state.ts";
 import type { Command } from "../types.ts";
 
@@ -13,8 +14,23 @@ import type { Command } from "../types.ts";
  *
  * Les variantes sans charge utile sont déclarées ici **sans** `params` : elles
  * sont **enrichies** — pas créées — par les tâches qui produisent leurs types.
- * `fin` porte ainsi le `ResultatPartie` de T9 ; `hof` attend encore l'entrée mise
- * en avant de T14. Pas de `unknown` de complaisance en attendant.
+ * `fin` porte ainsi le `ResultatPartie` de T9, et `hof` l'`EntreeHof` de T14.
+ * Pas de `unknown` de complaisance en attendant.
+ *
+ * Les params de `hof` sont **optionnels**, et c'est le seul cas : on ouvre le
+ * hall of fame depuis la fin d'une partie, avec l'entrée fraîchement classée à
+ * mettre en avant, mais aussi depuis l'accueil, où il n'y a rien à souligner.
+ * L'écran traite le cas absent explicitement ; il ne le force pas par un cast.
+ *
+ * `liste` porte le classement **déjà écrit** par `ajouteAuHof`, quand la
+ * transition vient de la validation d'un trigramme : c'est la valeur de retour
+ * de cet appel, pas une relecture. Un second `lisHof` à l'entrée de l'écran du
+ * classement pourrait diverger de ce qui vient d'être écrit — navigation
+ * privée dont le repli mémoire n'est pas partagé, quota qui bascule entre les
+ * deux appels — et le joueur découvrirait alors un classement sans la partie
+ * qu'il vient de valider, sans le moindre message pour l'expliquer. Absente
+ * (venue de l'accueil, ou d'un appelant qui n'a rien écrit), l'écran retombe
+ * sur `lisHof`.
  *
  * La `graine` de la variante `jeu` est la **seule** entropie extérieure du jeu :
  * tous les tirages d'une partie en descendent, et c'est l'écran d'accueil qui la
@@ -24,7 +40,13 @@ export type Transition =
   | { nom: "accueil" }
   | { nom: "jeu"; params: { niveau: 0 | 1 | 2; graine: number } }
   | { nom: "fin"; params: ResultatPartie }
-  | { nom: "hof" };
+  | {
+      nom: "hof";
+      params?: {
+        misEnAvant: EntreeHof;
+        liste?: readonly EntreeHof[];
+      };
+    };
 
 /**
  * Nom d'écran. Dérivé de `Transition`, jamais recopié : une copie littérale

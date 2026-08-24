@@ -38,6 +38,16 @@ import { ETOILES_ETENDUE, type Etoile } from "./stars.ts";
 /** Un tour complet, en radians. */
 const TOUR = Math.PI * 2;
 
+/**
+ * Graine du ciel des écrans en DOM : fixe, et **partagée** par tous les écrans
+ * qui peignent ce fond. Le 20 juillet 1969, en chiffres.
+ *
+ * Elle vit ici et non dans un écran : deux écrans qui tireraient chacun leur
+ * graine montreraient deux ciels différents, et le champ d'étoiles sauterait au
+ * passage de l'accueil au classement — sur une couche qui, elle, ne change pas.
+ */
+export const GRAINE_CIEL = 19690720;
+
 // --- La Terre ---
 
 /**
