@@ -263,7 +263,7 @@ de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
       `ALTITUDE 0000 M`, puis sur les bouchons de T5 (échelle 2 pour un titre,
       échelle 1 pour une invite). La confirmation définitive viendra du HUD
       complet en T11, mais rien n'oblige à changer de grille.
-- [ ] **Harmonie canvas / DOM sans police de fichier.** T1 tranche : police
+- [x] **Harmonie canvas / DOM sans police de fichier.** T1 tranche : police
       bitmap maison pour le canvas, `monospace` système à tailles multiples de
       8 px pour le DOM. Si l'écart visuel est trop fort, T13 peut rendre les
       titres DOM dans un petit canvas et le signaler.
@@ -283,10 +283,10 @@ de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
       — un écran appartient à un seul système, même palette des deux côtés,
       mêmes interdits (majuscules, aplats, cadres d'un pixel), grille de 8 px
       commune — et les écrans de fin de partie et du hall of fame (T15, T16)
-      suivent la même règle que l'accueil. **Le contrôle à l'œil reste ouvert** :
-      toujours pas de navigateur dans cet environnement d'implémentation, sur
-      trois écrans DOM désormais au lieu d'un.
-- [ ] **Jouabilité des réglages chiffrés** (poussée max 4,0 m/s², consommation
+      suivent la même règle que l'accueil.
+      **Levée après la PR du run D** : contrôle à l'œil fait par l'utilisateur
+      via `yarn dev` sur les quatre écrans DOM, aucun problème signalé.
+- [x] **Jouabilité des réglages chiffrés** (poussée max 4,0 m/s², consommation
       0,8 u/s par cran, réservoirs 140 / 122 / 104 u avec
       `CARBURANT_PENTE = 18`, dérive initiale 8 / 14 / 20 m/s). Posés pour être
       jouables, pas démontrés. T17 les réajuste et reporte les valeurs finales
@@ -302,11 +302,12 @@ de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
       (pas de navigateur) : la jouabilité a été sondée uniquement par du calcul
       et des simulations chiffrées (voir les gardes de T10), jamais par une
       partie réellement jouée. L'inconnue reste entière, à lever en T17.
-      État après T17 : **toujours ouverte**. Aucune valeur n'a bougé (le calcul
-      valide l'existant, voir ci-dessous), et aucune partie n'a été jouée
-      manette en main dans cet environnement — remplacé par le calcul et par
-      une mesure sur 800 terrains générés. La validation par le jeu reste
-      entière, à faire par un humain avant la PR.
+      État après T17 : aucune valeur n'a bougé (le calcul valide l'existant,
+      voir ci-dessous), et aucune partie n'a été jouée manette en main dans cet
+      environnement — remplacé par le calcul et par une mesure sur 800
+      terrains générés.
+      **Levée après la PR du run D** : partie jouée manette en main par
+      l'utilisateur via `yarn dev`, aucun problème signalé.
 - [x] **Plafond de difficulté à 2,4** : l'arbitrage retenu veut qu'il reste
       **franchissable**, donc que le carburant y suffise encore à annuler la
       dérive et à freiner la chute — sur le **pire** terrain (chute de
@@ -328,7 +329,7 @@ de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
       qui ne vaudrait que pour les valeurs du jour. Seule la vérification
       « par le jeu » (ressenti manette) reste ouverte, fondue dans l'inconnue
       « jouabilité des réglages » ci-dessus.
-- [ ] **Contraste de rugosité du terrain** (`RUGOSITE_DOUCE = 0,15` contre
+- [x] **Contraste de rugosité du terrain** (`RUGOSITE_DOUCE = 0,15` contre
       `RUGOSITE_ACCIDENTEE = 1,6`, plus la passe de pics et de canyons) : le
       relief doit vraiment offrir des secteurs infranchissables et des secteurs
       posables. Vérifié statistiquement en T6, réajusté à l'œil en T17.
@@ -345,9 +346,9 @@ de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
       fractions.
       État après T17 : le contraste chiffré (10 % / 89 %) est reporté au §5.1
       du cahier des charges, et `reglages.test.ts` ajoute l'invariant
-      « `RUGOSITE_ACCIDENTEE` vaut au moins cinq fois `RUGOSITE_DOUCE` ». Le
-      **réajustement à l'œil reste ouvert** : aucune partie jouée dans cet
-      environnement.
+      « `RUGOSITE_ACCIDENTEE` vaut au moins cinq fois `RUGOSITE_DOUCE` ».
+      **Levé après la PR du run D** : réajustement à l'œil fait par
+      l'utilisateur via `yarn dev`, aucun problème signalé.
 - [x] **Seuils de zoom et hystérésis** : assez larges pour ne pas clignoter,
       assez serrés pour que la vue rapprochée arrive à temps, et **bornés par la
       demi-hauteur de vue du zoom visé** (45 m au zoom 2, 22,5 m au zoom 4),
@@ -366,9 +367,10 @@ de `hof.ts`, pour ne pas faire dépendre le hall of fame de `state.ts`),
       État après T17 : l'**ordre des quatre seuils** et le fait qu'ils
       **tiennent tous les quatre** dans la demi-vue du zoom visé — entrée et
       retour — sont désormais couverts par deux invariants de
-      `reglages.test.ts`. Le **ressenti manette reste ouvert**, fondu dans
-      l'inconnue « jouabilité des réglages » ci-dessus : aucune partie jouée
-      dans cet environnement d'implémentation.
+      `reglages.test.ts`. Le ressenti manette est couvert par la levée de
+      l'inconnue « jouabilité des réglages » ci-dessus : partie jouée par
+      l'utilisateur via `yarn dev`, aucun clignotement ni sol sorti de l'écran
+      signalé.
 
 ### Fenêtre aveugle du largage — inconnue nouvelle, levée par la mesure
 
